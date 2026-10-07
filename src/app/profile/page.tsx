@@ -15,6 +15,7 @@ import {
   Shield,
 } from 'lucide-react';
 import { UserProfile, Achievement } from '@/lib/db/types';
+import { soundFX } from '@/lib/audio/sound-effects';
 
 interface AchievementWithStatus extends Achievement {
   unlocked: boolean;
@@ -44,16 +45,17 @@ export default function ProfilePage() {
 
   if (loading || !profile) {
     return (
-      <div className="mx-auto max-w-4xl py-20 px-4 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400 mx-auto">
-          <Sparkles className="h-6 w-6 animate-spin" />
+      <div className="mx-auto max-w-4xl py-24 px-4 text-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-slate-900 border-2 border-emerald-400 text-emerald-400 mx-auto animate-pulse">
+          <Sparkles className="h-8 w-8 animate-spin" />
         </div>
-        <p className="mt-4 text-sm text-slate-400">Cargando perfil de jugador...</p>
+        <p className="mt-4 text-xs font-mono uppercase tracking-widest text-slate-400">
+          Cargando ficha del jugador...
+        </p>
       </div>
     );
   }
 
-  // Calculate XP towards next level
   const nextLevelXp = Math.pow(profile.level, 2) * 100;
   const currentLevelBaseXp = Math.pow(profile.level - 1, 2) * 100;
   const xpInCurrentLevel = Math.max(0, profile.xp - currentLevelBaseXp);
@@ -66,109 +68,111 @@ export default function ProfilePage() {
     profile.games_played > 0 ? Math.round(profile.total_score / profile.games_played) : 0;
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-      {/* Profile Card Header */}
-      <div className="rounded-3xl bg-slate-900 border border-slate-800 p-6 sm:p-8 shadow-2xl relative overflow-hidden mb-8">
-        <div className="absolute top-0 right-0 w-1/2 h-full bg-emerald-500/5 blur-3xl pointer-events-none" />
-
+    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8 pb-20">
+      {/* Player Passport FUT Hero */}
+      <div className="rounded-3xl fut-card-emerald p-6 sm:p-8 shadow-2xl mb-8 relative">
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 relative z-10">
           <div className="relative">
-            <div className="h-24 w-24 rounded-2xl bg-slate-800 overflow-hidden border-2 border-emerald-500/60 shadow-xl shadow-emerald-500/20">
+            <div className="h-28 w-28 rounded-2xl bg-slate-800 overflow-hidden border-2 border-emerald-400 shadow-2xl">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={profile.avatar} alt={profile.username} className="h-full w-full object-cover" />
             </div>
-            <div className="absolute -bottom-2 -right-2 h-8 w-8 rounded-xl bg-emerald-500 text-slate-950 font-black text-xs flex items-center justify-center border-2 border-slate-900">
+            <div className="absolute -bottom-2 -right-2 h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 text-slate-950 font-black text-sm flex items-center justify-center border-2 border-slate-950 shadow-lg">
               {profile.level}
             </div>
           </div>
 
           <div className="flex-1 text-center sm:text-left">
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-              <h1 className="text-2xl sm:text-3xl font-black text-white">{profile.username}</h1>
+              <h1 className="text-2xl sm:text-4xl font-black text-white uppercase tracking-tight">
+                {profile.username}
+              </h1>
               {profile.is_guest && (
-                <span className="rounded-full bg-slate-800 px-2.5 py-0.5 text-[10px] font-bold text-slate-400 border border-slate-700">
-                  Invitado
+                <span className="rounded-full bg-slate-800/80 px-3 py-0.5 text-[10px] font-black uppercase text-slate-400 border border-slate-700">
+                  GUEST
                 </span>
               )}
             </div>
-            <p className="text-xs text-emerald-400 font-bold mt-1">
-              Nivel {profile.level} • {profile.xp.toLocaleString()} XP Totales
+            <p className="text-xs font-black uppercase tracking-wider text-emerald-400 mt-1">
+              NIVEL {profile.level} • {profile.xp.toLocaleString()} XP ACUMULADOS
             </p>
 
             {/* Level XP Progress Bar */}
             <div className="mt-4 max-w-md">
-              <div className="flex justify-between text-[11px] font-bold text-slate-400 mb-1">
-                <span>Progreso Nivel {profile.level + 1}</span>
-                <span className="text-emerald-400">{xpPercent}%</span>
+              <div className="flex justify-between text-[11px] font-black uppercase tracking-wider text-slate-300 mb-1">
+                <span>RUMBO AL NIVEL {profile.level + 1}</span>
+                <span className="text-emerald-400 font-mono">{xpPercent}%</span>
               </div>
-              <div className="h-2.5 w-full bg-slate-800 rounded-full overflow-hidden">
+              <div className="h-3 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-800">
                 <div
-                  className="h-full bg-gradient-to-r from-emerald-500 to-cyan-400 rounded-full transition-all duration-500"
+                  className="h-full bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-full transition-all duration-700"
                   style={{ width: `${xpPercent}%` }}
                 />
               </div>
             </div>
           </div>
 
-          {/* Daily Streak Counter */}
-          <div className="flex sm:flex-col items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/30 p-4 shrink-0">
-            <Flame className="h-8 w-8 text-amber-400 fill-amber-400/20 animate-bounce" />
+          {/* Daily Streak Flame */}
+          <div className="flex sm:flex-col items-center justify-center rounded-2xl bg-amber-500/20 border border-amber-500/40 p-4 shrink-0 shadow-lg">
+            <Flame className="h-9 w-9 text-amber-400 fill-amber-400 animate-bounce" />
             <div className="text-center ml-3 sm:ml-0 sm:mt-1">
-              <span className="text-2xl font-black text-amber-300 font-mono block">
+              <span className="text-3xl font-black text-amber-300 font-mono block leading-none">
                 {profile.daily_streak}
               </span>
-              <span className="text-[10px] font-bold uppercase text-amber-400/80">Racha Días</span>
+              <span className="text-[10px] font-black uppercase tracking-wider text-amber-400/90">
+                RACHA DÍAS
+              </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Stats Summary Grid */}
+      {/* Career Stats Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-        <div className="rounded-2xl bg-slate-900 border border-slate-800 p-4">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">PARTIDAS</span>
-          <span className="text-2xl font-black text-white font-mono mt-1 block">
+        <div className="rounded-2xl game-panel p-4 text-center border-slate-800">
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">PARTIDAS</span>
+          <span className="text-3xl font-black text-white font-mono mt-1 block">
             {profile.games_played}
           </span>
-          <span className="text-[11px] text-emerald-400 font-semibold">{profile.games_won} victorias</span>
+          <span className="text-[10px] text-emerald-400 font-bold uppercase">{profile.games_won} VICTORIAS</span>
         </div>
 
-        <div className="rounded-2xl bg-slate-900 border border-slate-800 p-4">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">EFECTIVIDAD</span>
-          <span className="text-2xl font-black text-emerald-400 font-mono mt-1 block">
+        <div className="rounded-2xl game-panel p-4 text-center border-slate-800">
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">EFECTIVIDAD</span>
+          <span className="text-3xl font-black text-emerald-400 font-mono mt-1 block">
             {winRate}%
           </span>
-          <span className="text-[11px] text-slate-400">Porcentaje de éxito</span>
+          <span className="text-[10px] text-slate-400 font-medium uppercase">WIN RATE</span>
         </div>
 
-        <div className="rounded-2xl bg-slate-900 border border-slate-800 p-4">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">MEJOR RÉCORD</span>
-          <span className="text-2xl font-black text-cyan-400 font-mono mt-1 block">
+        <div className="rounded-2xl game-panel p-4 text-center border-slate-800">
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">RÉCORD MÁXIMO</span>
+          <span className="text-3xl font-black text-cyan-400 font-mono mt-1 block">
             {profile.best_score.toLocaleString()}
           </span>
-          <span className="text-[11px] text-slate-400">Puntos en un juego</span>
+          <span className="text-[10px] text-slate-400 font-medium uppercase">MEJOR PARTIDA</span>
         </div>
 
-        <div className="rounded-2xl bg-slate-900 border border-slate-800 p-4">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">MEDIA POR PARTIDA</span>
-          <span className="text-2xl font-black text-white font-mono mt-1 block">
+        <div className="rounded-2xl game-panel p-4 text-center border-slate-800">
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">MEDIA PUNTOS</span>
+          <span className="text-3xl font-black text-amber-300 font-mono mt-1 block">
             {avgScore.toLocaleString()}
           </span>
-          <span className="text-[11px] text-slate-400">Promedio general</span>
+          <span className="text-[10px] text-slate-400 font-medium uppercase">PROMEDIO</span>
         </div>
       </div>
 
       {/* Achievements Badges */}
-      <div className="rounded-3xl bg-slate-900 border border-slate-800 p-6 shadow-xl">
+      <div className="rounded-3xl game-panel p-6 shadow-2xl border-slate-800">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-xl font-black text-white">LOGROS & MEDALLAS</h2>
+            <h2 className="text-xl font-black text-white uppercase tracking-tight">LOGROS & MEDALLAS</h2>
             <p className="text-xs text-slate-400">
-              Desbloquea hitos históricos demostrando tu conocimiento
+              Desbloquea insignias históricas demostrando tu conocimiento
             </p>
           </div>
-          <span className="text-xs font-bold text-emerald-400">
-            {achievements.filter((a) => a.unlocked).length} / {achievements.length} Desbloqueados
+          <span className="text-xs font-mono font-black text-emerald-400">
+            {achievements.filter((a) => a.unlocked).length} / {achievements.length}
           </span>
         </div>
 
@@ -178,8 +182,8 @@ export default function ProfilePage() {
               key={ach.id}
               className={`flex items-start gap-4 p-4 rounded-2xl border transition-all ${
                 ach.unlocked
-                  ? 'bg-slate-850/80 border-emerald-500/40 shadow-sm shadow-emerald-500/5'
-                  : 'bg-slate-900/50 border-slate-800/80 opacity-60'
+                  ? 'game-panel-glow border-emerald-500/50 shadow-md'
+                  : 'bg-slate-950/60 border-slate-800/80 opacity-50'
               }`}
             >
               <div
@@ -194,7 +198,7 @@ export default function ProfilePage() {
 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-bold text-white truncate">{ach.name}</h4>
+                  <h4 className="text-sm font-black text-white uppercase truncate">{ach.name}</h4>
                   <span className="text-[10px] font-black text-emerald-400 font-mono">
                     +{ach.xp_reward} XP
                   </span>

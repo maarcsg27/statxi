@@ -13,15 +13,15 @@ import {
   Share2,
   CheckCircle2,
   XCircle,
-  TrendingUp,
   Sparkles,
-  ChevronRight,
-  Shield,
-  HelpCircle,
+  Zap,
+  Play,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { GameType, StatType, STAT_REGISTRY } from '@/lib/game-engine/types';
 import { GAME_MODES } from '@/lib/game-engine/modes-data';
+import FutCard from '@/components/FutCard';
+import { soundFX } from '@/lib/audio/sound-effects';
 
 interface SanitizedPlayer {
   player_id: string;
@@ -129,12 +129,15 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
     startMatch();
   }, [modeInfo, timeLimit]);
 
-  // Round Timer Countdown
+  // Round Timer Countdown with Sound Tick
   useEffect(() => {
     if (loading || roundAnswered || matchFinished) return;
 
     timerRef.current = setInterval(() => {
       setTimeLeft((prev) => {
+        if (prev <= 4 && prev > 1) {
+          soundFX.playTick();
+        }
         if (prev <= 1) {
           clearInterval(timerRef.current!);
           handleTimeExpired();
@@ -151,6 +154,7 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
 
   const handleTimeExpired = () => {
     if (roundAnswered) return;
+    soundFX.playWrong();
     submitAnswer({
       selectedPlayerId: undefined,
       responseTimeMs: timeLimit * 1000,
@@ -195,29 +199,32 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
       if (data.success && data.result) {
         setRoundResult(data.result);
         if (data.result.isCorrect) {
+          soundFX.playCorrect();
           setTotalScore((prev) => prev + data.result.scoreAwarded);
           setStreak((prev) => prev + 1);
           setRoundsWon((prev) => prev + 1);
           try {
-            confetti({ particleCount: 30, spread: 60, origin: { y: 0.8 } });
+            confetti({ particleCount: 40, spread: 70, origin: { y: 0.7 } });
           } catch {}
         } else {
+          soundFX.playWrong();
           setStreak(0);
         }
       }
     } catch {
-      // Fallback
+      soundFX.playWrong();
       setRoundResult({
         isCorrect: false,
         scoreAwarded: 0,
         correctAnswerText: 'No disponible',
-        userAnswerText: 'Fallado',
+        userAnswerText: 'Fallo',
       });
       setStreak(0);
     }
   };
 
   const handleNextRound = async () => {
+    soundFX.playTap();
     if (currentRoundIdx + 1 < questions.length) {
       setCurrentRoundIdx((prev) => prev + 1);
       setRoundAnswered(false);
@@ -228,15 +235,15 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
       setTimeLeft(timeLimit);
       startTimeRef.current = Date.now();
     } else {
-      // Finish Match
       finishMatch();
     }
   };
 
   const finishMatch = async () => {
     setMatchFinished(true);
+    soundFX.playVictory();
     try {
-      confetti({ particleCount: 100, spread: 80, origin: { y: 0.6 } });
+      confetti({ particleCount: 120, spread: 90, origin: { y: 0.5 } });
     } catch {}
 
     const storedUser = localStorage.getItem('statxi_user');
@@ -267,6 +274,7 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
   };
 
   const handleShare = () => {
+    soundFX.playTap();
     const text = `⚽ ¡He sumado ${totalScore.toLocaleString()} PTS en STATXI (${modeInfo.name})! ¿Puedes superarme? Juega en: ${window.location.origin}/play/${modeInfo.type}`;
     navigator.clipboard.writeText(text);
     setCopiedShare(true);
@@ -275,12 +283,16 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
 
   if (loading) {
     return (
-      <div className="flex min-h-[70vh] flex-col items-center justify-center px-4">
-        <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-500/10 border border-emerald-500/30">
-          <Sparkles className="h-8 w-8 text-emerald-400 animate-spin" />
+      <div className="flex min-h-[75vh] flex-col items-center justify-center px-4">
+        <div className="relative flex h-20 w-20 items-center justify-center rounded-3xl bg-slate-900 border-2 border-emerald-400/50 shadow-2xl shadow-emerald-500/25">
+          <Sparkles className="h-10 w-10 text-emerald-400 animate-spin" />
         </div>
-        <h3 className="mt-4 text-lg font-bold text-white">Preparando el terreno de juego...</h3>
-        <p className="mt-1 text-sm text-slate-400">Consultando datos oficiales de jugadores en PostgreSQL</p>
+        <h3 className="mt-6 text-2xl font-black text-white uppercase tracking-tight">
+          Cargando Terreno de Juego
+        </h3>
+        <p className="mt-1 text-xs text-slate-400 font-mono">
+          Verificando estadísticas en PostgreSQL...
+        </p>
       </div>
     );
   }
@@ -288,16 +300,16 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
   if (error || !currentQ) {
     return (
       <div className="mx-auto max-w-md py-20 px-4 text-center">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10 text-red-400">
-          <XCircle className="h-6 w-6" />
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-red-500/10 text-red-400 border border-red-500/30">
+          <XCircle className="h-8 w-8" />
         </div>
-        <h2 className="mt-4 text-xl font-bold text-white">Error al cargar la partida</h2>
-        <p className="mt-2 text-sm text-slate-400">{error || 'No se han encontrado preguntas.'}</p>
+        <h2 className="mt-4 text-2xl font-black text-white uppercase">Error en la Partida</h2>
+        <p className="mt-2 text-xs text-slate-400">{error || 'No se han encontrado preguntas.'}</p>
         <button
           onClick={() => router.push('/modes')}
-          className="mt-6 inline-flex items-center gap-2 rounded-xl bg-slate-800 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-700"
+          className="mt-6 arcade-btn-green py-3 px-6 rounded-xl text-xs font-black uppercase cursor-pointer"
         >
-          <RotateCcw className="h-4 w-4" /> Volver a Juegos
+          <RotateCcw className="h-4 w-4 inline mr-2" /> Volver al Menú
         </button>
       </div>
     );
@@ -306,23 +318,24 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
   const statMeta = STAT_REGISTRY[currentQ.stat] || { label: currentQ.stat, unit: '' };
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
-      {/* Top Match HUD Bar */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-slate-900/90 border border-slate-800 p-4 shadow-xl">
+    <div className="mx-auto max-w-5xl px-3 sm:px-6 py-6 pb-20">
+      {/* ARENA BATTLE HUD */}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-3xl game-panel p-4 shadow-2xl border-emerald-500/20">
+        {/* Round Badge */}
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-black text-sm">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 text-slate-950 font-black text-lg shadow-lg shadow-emerald-500/25">
             {currentRoundIdx + 1}/{questions.length}
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">
                 {modeInfo.name}
               </span>
-              <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-semibold text-slate-300">
+              <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-300">
                 {statMeta.label}
               </span>
             </div>
-            <span className="text-sm font-semibold text-slate-200">
+            <span className="text-base font-black text-white uppercase tracking-tight">
               Ronda {currentRoundIdx + 1}
             </span>
           </div>
@@ -332,22 +345,22 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
             <Timer
-              className={`h-5 w-5 ${
-                timeLeft <= 4 ? 'text-red-400 animate-ping' : timeLeft <= 8 ? 'text-amber-400' : 'text-cyan-400'
+              className={`h-6 w-6 ${
+                timeLeft <= 4 ? 'text-red-400 animate-bounce' : timeLeft <= 8 ? 'text-amber-400' : 'text-cyan-400'
               }`}
             />
             <span
-              className={`text-lg font-black font-mono ${
-                timeLeft <= 4 ? 'text-red-400' : timeLeft <= 8 ? 'text-amber-400' : 'text-cyan-400'
+              className={`text-2xl font-black font-mono tracking-tight ${
+                timeLeft <= 4 ? 'text-red-400 animate-pulse' : timeLeft <= 8 ? 'text-amber-400' : 'text-cyan-400'
               }`}
             >
               {timeLeft}s
             </span>
           </div>
-          <div className="w-24 sm:w-32 h-2.5 bg-slate-800 rounded-full overflow-hidden">
+          <div className="w-24 sm:w-36 h-3 bg-slate-800/80 rounded-full overflow-hidden border border-slate-700/60">
             <div
               className={`h-full transition-all duration-1000 ease-linear ${
-                timeLeft <= 4 ? 'bg-red-500' : timeLeft <= 8 ? 'bg-amber-400' : 'bg-gradient-to-r from-emerald-500 to-cyan-400'
+                timeLeft <= 4 ? 'bg-red-500' : timeLeft <= 8 ? 'bg-amber-400' : 'bg-gradient-to-r from-emerald-400 to-cyan-400'
               }`}
               style={{ width: `${(timeLeft / timeLimit) * 100}%` }}
             />
@@ -356,133 +369,116 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
 
         {/* Right: Score & Streak */}
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1 text-amber-400">
-            <Flame className="h-5 w-5 fill-amber-400/20" />
-            <span className="text-sm font-bold font-mono">x{streak}</span>
+          <div className="flex items-center gap-1.5 rounded-xl bg-amber-500/20 px-3 py-1 border border-amber-500/40">
+            <Flame className="h-5 w-5 text-amber-400 fill-amber-400 animate-pulse" />
+            <span className="text-sm font-black text-amber-300 font-mono">x{streak}</span>
           </div>
-          <div className="flex flex-col text-right">
-            <span className="text-[10px] font-bold uppercase text-slate-400">PUNTOS</span>
-            <span className="text-lg font-black text-emerald-400 font-mono">
+          <div className="text-right">
+            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">PUNTOS</span>
+            <span className="text-2xl font-black text-emerald-400 font-mono leading-none drop-shadow">
               {totalScore.toLocaleString()}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Main Question Card */}
-      <div className="mb-6 rounded-3xl bg-slate-900 border border-slate-800/80 p-6 sm:p-8 text-center shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-24 bg-emerald-500/5 blur-3xl pointer-events-none" />
+      {/* ARENA PROMPT BANNER */}
+      <div className="mb-6 rounded-3xl bg-slate-900/90 border border-emerald-500/30 p-6 sm:p-8 text-center shadow-2xl relative overflow-hidden">
+        <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-28 bg-emerald-500/10 blur-3xl" />
 
-        <span className="inline-block rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-400 mb-3 uppercase tracking-wider">
-          {statMeta.label}
-        </span>
-        <h1 className="text-xl sm:text-3xl font-black text-white tracking-tight max-w-2xl mx-auto leading-snug">
+        <div className="inline-block rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3.5 py-1 text-xs font-black uppercase tracking-wider text-emerald-400 mb-3">
+          ⚡ {statMeta.label}
+        </div>
+        <h1 className="text-2xl sm:text-4xl font-black text-white uppercase tracking-tight max-w-3xl mx-auto leading-tight drop-shadow-md">
           {currentQ.prompt}
         </h1>
       </div>
 
-      {/* Interactive Arena based on Game Type */}
+      {/* INTERACTIVE ARENA PLAYFIELD */}
       {!roundAnswered ? (
         <div>
-          {/* 1. HIGHER / LOWER 4-OPTIONS */}
+          {/* 1. HIGHER / LOWER 4 FUT CARDS GRID */}
           {(currentQ.gameType === 'higher' || currentQ.gameType === 'lower') && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {currentQ.players.map((player) => (
-                <button
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+              {currentQ.players.map((player, idx) => (
+                <FutCard
                   key={player.player_id}
+                  name={player.name}
+                  photo={player.photo}
+                  position={player.position}
+                  nationality={player.nationality}
+                  clubName={player.club_name}
+                  clubLogo={player.club_logo}
+                  variant={idx === 0 ? 'emerald' : idx === 1 ? 'gold' : idx === 2 ? 'cyan' : 'purple'}
+                  isSelected={selectedPlayerId === player.player_id}
                   onClick={() => {
                     setSelectedPlayerId(player.player_id);
                     submitAnswer({ selectedPlayerId: player.player_id });
                   }}
-                  className="group relative flex items-center gap-4 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-emerald-500/60 p-4 transition-all duration-200 hover:scale-[1.02] hover:bg-slate-850 hover:shadow-lg hover:shadow-emerald-500/10 text-left cursor-pointer"
-                >
-                  <div className="relative h-16 w-16 sm:h-20 sm:w-20 shrink-0 overflow-hidden rounded-xl bg-slate-800 border border-slate-700/50">
-                    {player.photo ? (
-                      <Image
-                        src={player.photo}
-                        alt={player.name}
-                        fill
-                        className="object-cover group-hover:scale-105 transition-transform"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-slate-500 font-black text-lg">
-                        {player.name.substring(0, 2)}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-emerald-400">
-                        {player.position}
-                      </span>
-                      <span className="text-slate-600">•</span>
-                      <span className="text-xs text-slate-400 truncate">{player.nationality}</span>
-                    </div>
-                    <h3 className="text-lg sm:text-xl font-bold text-white truncate group-hover:text-emerald-300">
-                      {player.name}
-                    </h3>
-                    <p className="text-xs text-slate-400 truncate mt-0.5">{player.club_name}</p>
-                  </div>
-
-                  <ChevronRight className="h-5 w-5 text-slate-500 group-hover:text-emerald-400 group-hover:translate-x-1 transition-all" />
-                </button>
+                  highlightStat={{
+                    label: 'Toca para elegir',
+                    value: '¿MÁS ALTO?',
+                  }}
+                />
               ))}
             </div>
           )}
 
-          {/* 2. HIGHER / LOWER LADDER (2 Players comparison) */}
+          {/* 2. HIGHER / LOWER LADDER (2 FUT Cards VS Battle) */}
           {currentQ.gameType === 'higher-lower' && currentQ.players.length >= 2 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-              {/* Player A (Revealed) */}
-              <div className="rounded-3xl bg-slate-900 border border-slate-800 p-6 text-center">
-                <div className="relative h-28 w-28 mx-auto rounded-2xl overflow-hidden bg-slate-800 border-2 border-slate-700 mb-4">
-                  {currentQ.players[0].photo && (
-                    <Image
-                      src={currentQ.players[0].photo}
-                      alt={currentQ.players[0].name}
-                      fill
-                      className="object-cover"
-                    />
-                  )}
-                </div>
-                <h3 className="text-xl font-black text-white">{currentQ.players[0].name}</h3>
-                <p className="text-xs text-slate-400">{currentQ.players[0].club_name}</p>
-                <div className="mt-4 inline-block rounded-xl bg-slate-800 border border-slate-700 px-4 py-2">
-                  <span className="text-xs text-slate-400 block font-bold">REGISTRO</span>
-                  <span className="text-2xl font-black text-emerald-400 font-mono">
-                    {currentQ.options?.[0]?.value !== undefined
-                      ? statMeta.formatValue(currentQ.options[0].value)
-                      : 'Descubierto'}
-                  </span>
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center max-w-2xl mx-auto">
+              {/* Card A: Revealed Stat */}
+              <div>
+                <FutCard
+                  name={currentQ.players[0].name}
+                  photo={currentQ.players[0].photo}
+                  position={currentQ.players[0].position}
+                  nationality={currentQ.players[0].nationality}
+                  clubName={currentQ.players[0].club_name}
+                  variant="emerald"
+                  isRevealed={true}
+                  highlightStat={{
+                    label: statMeta.label,
+                    value:
+                      currentQ.options?.[0]?.value !== undefined
+                        ? statMeta.formatValue(currentQ.options[0].value)
+                        : 'Descubierto',
+                  }}
+                />
               </div>
 
-              {/* Player B (Interactive Guess) */}
-              <div className="rounded-3xl bg-slate-900/90 border-2 border-dashed border-emerald-500/40 p-6 text-center">
-                <div className="relative h-28 w-28 mx-auto rounded-2xl overflow-hidden bg-slate-800 border-2 border-emerald-500/50 mb-4">
-                  {currentQ.players[1].photo && (
-                    <Image
-                      src={currentQ.players[1].photo}
-                      alt={currentQ.players[1].name}
-                      fill
-                      className="object-cover"
-                    />
-                  )}
-                </div>
-                <h3 className="text-xl font-black text-white">{currentQ.players[1].name}</h3>
-                <p className="text-xs text-slate-400 mb-6">{currentQ.players[1].club_name}</p>
+              {/* Card B: Higher or Lower Choice */}
+              <div className="space-y-4">
+                <FutCard
+                  name={currentQ.players[1].name}
+                  photo={currentQ.players[1].photo}
+                  position={currentQ.players[1].position}
+                  nationality={currentQ.players[1].nationality}
+                  clubName={currentQ.players[1].club_name}
+                  variant="gold"
+                  isRevealed={false}
+                  highlightStat={{
+                    label: '¿Tiene más o menos?',
+                    value: '???',
+                  }}
+                />
 
-                <div className="flex gap-3 justify-center">
+                <div className="flex gap-3 pt-2">
                   <button
-                    onClick={() => submitAnswer({ choice: 'higher' })}
-                    className="flex-1 py-3 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-base transition-transform active:scale-95 shadow-lg shadow-emerald-500/20"
+                    onClick={() => {
+                      soundFX.playTap();
+                      submitAnswer({ choice: 'higher' });
+                    }}
+                    className="flex-1 arcade-btn-green py-4 rounded-2xl text-lg font-black uppercase cursor-pointer"
                   >
                     ▲ MAYOR
                   </button>
                   <button
-                    onClick={() => submitAnswer({ choice: 'lower' })}
-                    className="flex-1 py-3 px-4 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-black text-base transition-transform active:scale-95 shadow-lg shadow-rose-500/20"
+                    onClick={() => {
+                      soundFX.playTap();
+                      submitAnswer({ choice: 'lower' });
+                    }}
+                    className="flex-1 arcade-btn-red py-4 rounded-2xl text-lg font-black uppercase cursor-pointer"
                   >
                     ▼ MENOR
                   </button>
@@ -491,51 +487,75 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
             </div>
           )}
 
-          {/* 3. EXACT / CLOSEST INPUT */}
+          {/* 3. EXACT / CLOSEST NUMERIC ESTIMATOR */}
           {(currentQ.gameType === 'exact' || currentQ.gameType === 'closest') && currentQ.players[0] && (
-            <div className="max-w-md mx-auto rounded-3xl bg-slate-900 border border-slate-800 p-6 text-center">
-              <div className="relative h-28 w-28 mx-auto rounded-2xl overflow-hidden bg-slate-800 border-2 border-slate-700 mb-4">
-                {currentQ.players[0].photo && (
-                  <Image
-                    src={currentQ.players[0].photo}
-                    alt={currentQ.players[0].name}
-                    fill
-                    className="object-cover"
-                  />
-                )}
-              </div>
-              <h3 className="text-xl font-black text-white">{currentQ.players[0].name}</h3>
-              <p className="text-xs text-slate-400 mb-6">{currentQ.players[0].club_name}</p>
+            <div className="max-w-md mx-auto">
+              <FutCard
+                name={currentQ.players[0].name}
+                photo={currentQ.players[0].photo}
+                position={currentQ.players[0].position}
+                nationality={currentQ.players[0].nationality}
+                clubName={currentQ.players[0].club_name}
+                variant="gold"
+                isRevealed={false}
+                highlightStat={{
+                  label: statMeta.label,
+                  value: '???',
+                }}
+              />
 
-              <div className="mb-4">
+              <div className="mt-6 game-panel rounded-3xl p-6 text-center border-slate-800">
+                <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
+                  Introduce tu pronóstico numérico
+                </label>
                 <input
                   type="number"
-                  placeholder="Introduce tu pronóstico numérico..."
+                  placeholder="0"
                   value={numericInput}
                   onChange={(e) => setNumericInput(e.target.value)}
-                  className="w-full text-center text-2xl font-black font-mono rounded-2xl bg-slate-950 border border-slate-700 px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+                  className="w-full text-center text-4xl font-black font-mono rounded-2xl bg-slate-950 border-2 border-slate-700 px-4 py-3 text-white focus:outline-none focus:border-emerald-400"
                 />
-              </div>
 
-              <button
-                disabled={!numericInput}
-                onClick={() => submitAnswer({ numericAnswer: Number(numericInput) })}
-                className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-black text-base transition-colors"
-              >
-                Confirmar Pronóstico
-              </button>
+                <button
+                  disabled={!numericInput}
+                  onClick={() => {
+                    soundFX.playTap();
+                    submitAnswer({ numericAnswer: Number(numericInput) });
+                  }}
+                  className="mt-4 w-full arcade-btn-green py-4 rounded-2xl text-base font-black uppercase cursor-pointer disabled:opacity-40"
+                >
+                  CONFIRMAR PRONÓSTICO
+                </button>
+              </div>
             </div>
           )}
 
-          {/* 4. GUESS THE STAT MULTIPLE CHOICE */}
-          {currentQ.gameType === 'guess-stat' && (
-            <div className="max-w-lg mx-auto">
-              <div className="grid grid-cols-2 gap-4">
+          {/* 4. GUESS THE STAT 4 ARCADE BUTTONS */}
+          {currentQ.gameType === 'guess-stat' && currentQ.players[0] && (
+            <div className="max-w-md mx-auto space-y-6">
+              <FutCard
+                name={currentQ.players[0].name}
+                photo={currentQ.players[0].photo}
+                position={currentQ.players[0].position}
+                nationality={currentQ.players[0].nationality}
+                clubName={currentQ.players[0].club_name}
+                variant="cyan"
+                isRevealed={false}
+                highlightStat={{
+                  label: 'Elige la cifra correcta',
+                  value: '???',
+                }}
+              />
+
+              <div className="grid grid-cols-2 gap-3">
                 {currentQ.options?.map((opt, idx) => (
                   <button
                     key={idx}
-                    onClick={() => submitAnswer({ numericAnswer: opt.value })}
-                    className="py-4 px-6 rounded-2xl bg-slate-900 border border-slate-800 hover:border-emerald-500 hover:bg-slate-850 font-black font-mono text-xl text-white hover:text-emerald-300 transition-all cursor-pointer"
+                    onClick={() => {
+                      soundFX.playTap();
+                      submitAnswer({ numericAnswer: opt.value });
+                    }}
+                    className="game-panel hover:game-panel-glow py-4 px-4 rounded-2xl font-mono text-xl font-black text-white hover:text-emerald-300 transition-all cursor-pointer text-center"
                   >
                     {opt.label}
                   </button>
@@ -547,46 +567,47 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
           {/* 5. LIMIT / TARGET ACCUMULATOR */}
           {(currentQ.gameType === 'limit' || currentQ.gameType === 'target') && (
             <div>
-              <div className="mb-4 flex items-center justify-between rounded-xl bg-slate-800/80 px-4 py-3 border border-slate-700">
-                <span className="text-sm font-semibold text-slate-300">
+              <div className="mb-4 flex items-center justify-between rounded-2xl game-panel px-5 py-3.5 border-emerald-500/30">
+                <span className="text-sm font-black uppercase text-white">
                   {currentQ.gameType === 'limit'
-                    ? `Tope Límite: ${currentQ.limitValue}`
-                    : `Objetivo: ${currentQ.targetValue}`}
+                    ? `Tope Límite: ${currentQ.limitValue} ${statMeta.label}`
+                    : `Objetivo Exacto: ${currentQ.targetValue} ${statMeta.label}`}
                 </span>
                 <button
                   disabled={selectedMultiIds.length === 0}
-                  onClick={() => submitAnswer({ selectedPlayerIds: selectedMultiIds })}
-                  className="rounded-lg bg-emerald-500 px-4 py-1.5 text-xs font-black text-slate-950 hover:bg-emerald-400 disabled:opacity-40"
+                  onClick={() => {
+                    soundFX.playTap();
+                    submitAnswer({ selectedPlayerIds: selectedMultiIds });
+                  }}
+                  className="arcade-btn-green px-5 py-2 rounded-xl text-xs font-black uppercase disabled:opacity-40"
                 >
-                  Enviar Selección ({selectedMultiIds.length})
+                  Confirmar Selección ({selectedMultiIds.length})
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {currentQ.players.map((p) => {
                   const isSelected = selectedMultiIds.includes(p.player_id);
                   return (
-                    <button
+                    <FutCard
                       key={p.player_id}
+                      name={p.name}
+                      photo={p.photo}
+                      position={p.position}
+                      nationality={p.nationality}
+                      clubName={p.club_name}
+                      variant={isSelected ? 'emerald' : 'gold'}
+                      isSelected={isSelected}
                       onClick={() => {
                         setSelectedMultiIds((prev) =>
                           isSelected ? prev.filter((id) => id !== p.player_id) : [...prev, p.player_id]
                         );
                       }}
-                      className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
-                        isSelected
-                          ? 'bg-emerald-500/20 border-emerald-500'
-                          : 'bg-slate-900 border-slate-800 hover:border-slate-700'
-                      }`}
-                    >
-                      <div className="h-12 w-12 rounded-lg bg-slate-800 relative overflow-hidden shrink-0">
-                        {p.photo && <Image src={p.photo} alt={p.name} fill className="object-cover" />}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h4 className="text-sm font-bold text-white truncate">{p.name}</h4>
-                        <span className="text-[11px] text-slate-400">{p.club_name}</span>
-                      </div>
-                    </button>
+                      highlightStat={{
+                        label: isSelected ? 'SELECCIONADO' : 'Toca para sumar',
+                        value: isSelected ? 'AÑADIDO' : '+ SUMAR',
+                      }}
+                    />
                   );
                 })}
               </div>
@@ -594,115 +615,117 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
           )}
         </div>
       ) : (
-        /* Round Result Feedback Banner */
-        <div className="rounded-3xl bg-slate-900 border border-slate-800 p-8 text-center animate-fadeIn shadow-2xl">
+        /* ARCADE RESULT REVEAL BANNER */
+        <div
+          className={`rounded-3xl p-8 text-center shadow-2xl transition-all duration-300 ${
+            roundResult?.isCorrect
+              ? 'game-panel-glow border-emerald-400/80 animate-scaleUp'
+              : 'game-panel border-red-500/60 animate-shake'
+          }`}
+        >
           <div
-            className={`mx-auto flex h-16 w-16 items-center justify-center rounded-2xl mb-4 ${
+            className={`mx-auto flex h-20 w-20 items-center justify-center rounded-3xl mb-4 shadow-xl ${
               roundResult?.isCorrect
-                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                : 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
+                ? 'bg-emerald-500 text-slate-950 shadow-emerald-500/40'
+                : 'bg-red-500 text-white shadow-red-500/40'
             }`}
           >
-            {roundResult?.isCorrect ? (
-              <CheckCircle2 className="h-8 w-8" />
-            ) : (
-              <XCircle className="h-8 w-8" />
-            )}
+            {roundResult?.isCorrect ? <CheckCircle2 className="h-12 w-12" /> : <XCircle className="h-12 w-12" />}
           </div>
 
-          <h2 className="text-2xl font-black text-white">
+          <h2 className="text-3xl sm:text-4xl font-black text-white uppercase tracking-tight">
             {roundResult?.isCorrect ? '¡CORRECTO!' : 'FALLO'}
           </h2>
 
-          <p className="mt-2 text-sm text-slate-300">
+          <p className="mt-2 text-sm text-slate-300 font-medium">
             Respuesta oficial: <strong className="text-emerald-400">{roundResult?.correctAnswerText}</strong>
           </p>
 
-          <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-slate-800 px-4 py-1.5 border border-slate-700">
-            <span className="text-xs text-slate-400 font-bold">Puntos ronda:</span>
-            <span className="text-sm font-black text-emerald-400 font-mono">
-              +{roundResult?.scoreAwarded.toLocaleString()}
+          <div className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-slate-950 border border-emerald-500/40 px-5 py-2">
+            <span className="text-xs text-slate-400 font-bold uppercase">Puntos Ganados:</span>
+            <span className="text-xl font-black text-emerald-400 font-mono">
+              +{roundResult?.scoreAwarded.toLocaleString()} PTS
             </span>
           </div>
 
           <div className="mt-8">
             <button
               onClick={handleNextRound}
-              className="inline-flex items-center gap-2 rounded-2xl bg-emerald-500 hover:bg-emerald-400 px-8 py-3.5 text-base font-black text-slate-950 shadow-lg shadow-emerald-500/20 transition-all hover:scale-105 active:scale-95"
+              className="arcade-btn-green py-4 px-10 rounded-2xl text-base font-black uppercase tracking-wider inline-flex items-center gap-2 cursor-pointer"
             >
-              {currentRoundIdx + 1 < questions.length ? 'Siguiente Ronda' : 'Ver Resultado Final'}
+              {currentRoundIdx + 1 < questions.length ? 'SIGUIENTE RONDA' : 'VER RESULTADO FINAL'}
               <ArrowRight className="h-5 w-5" />
             </button>
           </div>
         </div>
       )}
 
-      {/* Match Finished Modal */}
+      {/* MATCH FINISHED CELEBRATION MODAL */}
       {matchFinished && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-4">
-          <div className="w-full max-w-md rounded-3xl bg-slate-900 border border-slate-800 p-8 text-center shadow-2xl relative overflow-hidden animate-scaleUp">
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-32 bg-emerald-500/10 blur-3xl pointer-events-none" />
-
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-slate-950 shadow-lg shadow-amber-500/20 mb-4">
-              <Trophy className="h-8 w-8" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-xl p-4">
+          <div className="w-full max-w-md rounded-3xl game-panel-glow p-8 text-center shadow-2xl relative overflow-hidden animate-scaleUp">
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-amber-400 to-amber-600 text-slate-950 shadow-xl shadow-amber-500/30 mb-4">
+              <Trophy className="h-10 w-10 fill-slate-950" />
             </div>
 
-            <h2 className="text-2xl font-black text-white">¡Partida Completada!</h2>
-            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400 mt-1">
+            <h2 className="text-3xl font-black text-white uppercase tracking-tight">
+              ¡PARTIDA FINALIZADA!
+            </h2>
+            <p className="text-xs font-black uppercase tracking-widest text-emerald-400 mt-1">
               {modeInfo.name} • STATXI
             </p>
 
-            {/* Score Banner */}
-            <div className="my-6 rounded-2xl bg-slate-950 border border-slate-800 p-4">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+            {/* Score Showcase */}
+            <div className="my-6 rounded-2xl bg-slate-950 border border-slate-800 p-5">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
                 PUNTUACIÓN TOTAL
               </span>
-              <div className="text-4xl font-black text-white font-mono mt-1">
+              <div className="text-5xl font-black text-emerald-400 font-mono mt-1 drop-shadow">
                 {totalScore.toLocaleString()}
               </div>
-              <div className="mt-2 flex items-center justify-center gap-3 text-xs">
-                <span className="text-slate-400">
-                  Aciertos: <strong className="text-slate-200">{roundsWon}/{questions.length}</strong>
+              <div className="mt-3 flex items-center justify-center gap-4 text-xs font-bold">
+                <span className="text-slate-300">
+                  Aciertos: <strong className="text-emerald-400">{roundsWon}/{questions.length}</strong>
                 </span>
-                <span className="text-emerald-400 font-bold">+{xpEarned} XP</span>
+                <span className="text-cyan-400 font-mono">+{xpEarned} XP</span>
               </div>
             </div>
 
-            {/* Unlocked Achievements */}
+            {/* Achievements */}
             {newlyUnlocked.length > 0 && (
-              <div className="mb-6 rounded-xl bg-amber-500/10 border border-amber-500/30 p-3 text-left">
-                <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
+              <div className="mb-6 rounded-2xl bg-amber-500/15 border border-amber-500/40 p-3.5 text-left">
+                <div className="flex items-center gap-2 text-xs font-black text-amber-300 uppercase">
                   <Sparkles className="h-4 w-4 text-amber-400" />
-                  ¡Nuevo Logro Desbloqueado!
+                  ¡NUEVA MEDALLA DESBLOQUEADA!
                 </div>
-                <div className="text-xs text-amber-200/80 mt-1">
-                  Has ganado recompensas de nivel y medallas en tu perfil.
+                <div className="text-xs text-amber-200/90 mt-1">
+                  Has sumado bonificación de XP en tu perfil de jugador.
                 </div>
               </div>
             )}
 
-            {/* Actions */}
+            {/* Modal Actions */}
             <div className="flex flex-col gap-3">
               <button
                 onClick={handleShare}
-                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-750 text-white font-bold text-sm transition-colors border border-slate-700"
+                className="w-full py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 border border-slate-700 cursor-pointer"
               >
                 <Share2 className="h-4 w-4 text-emerald-400" />
-                {copiedShare ? '¡Copiado al portapapeles!' : 'Compartir con Amigos'}
+                {copiedShare ? '¡ENLACE COPIADO!' : 'COMPARTIR RESULTADO'}
               </button>
 
               <button
                 onClick={() => window.location.reload()}
-                className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm transition-colors shadow-lg shadow-emerald-500/20"
+                className="w-full arcade-btn-green py-4 rounded-xl text-sm font-black uppercase tracking-wider cursor-pointer"
               >
-                Jugar Otra Partida
+                JUGAR DE NUEVO
               </button>
 
               <Link
                 href="/modes"
-                className="text-xs font-semibold text-slate-400 hover:text-slate-200 py-2"
+                className="text-xs font-bold uppercase text-slate-400 hover:text-white py-2"
               >
-                Explorar otros minijuegos
+                Elegir otro modo de juego
               </Link>
             </div>
           </div>
