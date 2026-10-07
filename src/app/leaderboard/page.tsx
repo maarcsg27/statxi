@@ -40,20 +40,18 @@ export default function LeaderboardPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8 pb-20">
-      {/* Title */}
-      <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/40 px-3.5 py-1 text-xs font-black uppercase tracking-wider text-emerald-400 mb-2">
-            <Trophy className="h-3.5 w-3.5" /> CLASIFICACIÓN MUNDIAL
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight uppercase">
-            HALL OF FAME
-          </h1>
-          <p className="text-xs text-slate-400 mt-1">Los mayores expertos de estadísticas de fútbol del mundo.</p>
+      {/* Title Centered */}
+      <div className="mb-8 text-center max-w-xl mx-auto">
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/40 px-3.5 py-1 text-xs font-black uppercase tracking-wider text-emerald-400 mb-2">
+          <Trophy className="h-3.5 w-3.5" /> CLASIFICACIÓN MUNDIAL
         </div>
+        <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight uppercase">
+          HALL OF FAME
+        </h1>
+        <p className="text-xs text-slate-400 mt-1">Los mayores expertos de estadísticas de fútbol del mundo.</p>
 
-        {/* Tab Switcher */}
-        <div className="flex rounded-2xl bg-slate-900 border border-slate-800 p-1.5 shadow-inner">
+        {/* Tab Switcher Centered */}
+        <div className="mt-5 inline-flex rounded-2xl bg-slate-900 border border-slate-800 p-1.5 shadow-inner">
           <button
             onClick={() => handleTab('global')}
             className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${

@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState, useRef, use } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import {
   Timer,
@@ -15,22 +14,19 @@ import {
   XCircle,
   Sparkles,
   Zap,
-  Play,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { GameType, StatType, STAT_REGISTRY } from '@/lib/game-engine/types';
 import { GAME_MODES } from '@/lib/game-engine/modes-data';
-import FutCard from '@/components/FutCard';
+import PlayerCardClean from '@/components/PlayerCardClean';
 import { soundFX } from '@/lib/audio/sound-effects';
 
 interface SanitizedPlayer {
   player_id: string;
   name: string;
-  photo?: string | null;
   position: string;
   nationality: string;
   club_name?: string | null;
-  club_logo?: string | null;
 }
 
 interface QuestionData {
@@ -284,14 +280,14 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
   if (loading) {
     return (
       <div className="flex min-h-[75vh] flex-col items-center justify-center px-4">
-        <div className="relative flex h-20 w-20 items-center justify-center rounded-3xl bg-slate-900 border-2 border-emerald-400/50 shadow-2xl shadow-emerald-500/25">
-          <Sparkles className="h-10 w-10 text-emerald-400 animate-spin" />
+        <div className="relative flex h-20 w-20 items-center justify-center rounded-3xl bg-slate-900 border-2 border-emerald-400 text-emerald-400 shadow-2xl">
+          <Sparkles className="h-10 w-10 animate-spin" />
         </div>
-        <h3 className="mt-6 text-2xl font-black text-white uppercase tracking-tight">
-          Cargando Terreno de Juego
+        <h3 className="mt-6 text-2xl font-black text-white uppercase tracking-tight text-center">
+          Preparando la Ronda
         </h3>
-        <p className="mt-1 text-xs text-slate-400 font-mono">
-          Verificando estadísticas en PostgreSQL...
+        <p className="mt-1 text-xs text-slate-400 font-mono text-center">
+          Obteniendo estadísticas desde PostgreSQL...
         </p>
       </div>
     );
@@ -318,97 +314,69 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
   const statMeta = STAT_REGISTRY[currentQ.stat] || { label: currentQ.stat, unit: '' };
 
   return (
-    <div className="mx-auto max-w-5xl px-3 sm:px-6 py-6 pb-20">
-      {/* ARENA BATTLE HUD */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-3xl game-panel p-4 shadow-2xl border-emerald-500/20">
-        {/* Round Badge */}
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 text-slate-950 font-black text-lg shadow-lg shadow-emerald-500/25">
-            {currentRoundIdx + 1}/{questions.length}
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">
-                {modeInfo.name}
-              </span>
-              <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-300">
-                {statMeta.label}
-              </span>
-            </div>
-            <span className="text-base font-black text-white uppercase tracking-tight">
-              Ronda {currentRoundIdx + 1}
-            </span>
-          </div>
+    <div className="mx-auto max-w-4xl px-4 py-8 pb-24">
+      {/* TÍTULO Y HUD CENTRADO */}
+      <div className="mb-8 text-center max-w-2xl mx-auto">
+        <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 border border-emerald-500/40 px-4 py-1 text-xs font-black uppercase tracking-wider text-emerald-400 mb-2">
+          <span>{modeInfo.name}</span> • <span>Ronda {currentRoundIdx + 1} de {questions.length}</span>
         </div>
 
-        {/* Center: Live Timer Gauge */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5">
+        <h1 className="text-3xl sm:text-5xl font-black text-white uppercase tracking-tight drop-shadow-md">
+          {currentQ.prompt}
+        </h1>
+
+        {/* Center Live HUD Bar */}
+        <div className="mt-5 flex items-center justify-center gap-6 rounded-2xl bg-slate-900 border border-slate-800 p-3 max-w-md mx-auto shadow-xl">
+          {/* Timer */}
+          <div className="flex items-center gap-2 font-mono">
             <Timer
-              className={`h-6 w-6 ${
-                timeLeft <= 4 ? 'text-red-400 animate-bounce' : timeLeft <= 8 ? 'text-amber-400' : 'text-cyan-400'
+              className={`h-5 w-5 ${
+                timeLeft <= 4 ? 'text-red-400 animate-bounce' : 'text-cyan-400'
               }`}
             />
             <span
-              className={`text-2xl font-black font-mono tracking-tight ${
-                timeLeft <= 4 ? 'text-red-400 animate-pulse' : timeLeft <= 8 ? 'text-amber-400' : 'text-cyan-400'
+              className={`text-xl font-black ${
+                timeLeft <= 4 ? 'text-red-400' : 'text-cyan-400'
               }`}
             >
               {timeLeft}s
             </span>
           </div>
-          <div className="w-24 sm:w-36 h-3 bg-slate-800/80 rounded-full overflow-hidden border border-slate-700/60">
-            <div
-              className={`h-full transition-all duration-1000 ease-linear ${
-                timeLeft <= 4 ? 'bg-red-500' : timeLeft <= 8 ? 'bg-amber-400' : 'bg-gradient-to-r from-emerald-400 to-cyan-400'
-              }`}
-              style={{ width: `${(timeLeft / timeLimit) * 100}%` }}
-            />
-          </div>
-        </div>
 
-        {/* Right: Score & Streak */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1.5 rounded-xl bg-amber-500/20 px-3 py-1 border border-amber-500/40">
-            <Flame className="h-5 w-5 text-amber-400 fill-amber-400 animate-pulse" />
-            <span className="text-sm font-black text-amber-300 font-mono">x{streak}</span>
+          <div className="h-6 w-px bg-slate-800" />
+
+          {/* Streak Flame */}
+          <div className="flex items-center gap-1.5 text-amber-400">
+            <Flame className="h-5 w-5 fill-amber-400/20" />
+            <span className="font-mono text-sm font-black text-amber-300">x{streak}</span>
           </div>
-          <div className="text-right">
-            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">PUNTOS</span>
-            <span className="text-2xl font-black text-emerald-400 font-mono leading-none drop-shadow">
+
+          <div className="h-6 w-px bg-slate-800" />
+
+          {/* Points */}
+          <div className="flex items-center gap-1.5 font-mono">
+            <span className="text-xs font-bold text-slate-400">PTS:</span>
+            <span className="text-xl font-black text-emerald-400">
               {totalScore.toLocaleString()}
             </span>
           </div>
         </div>
       </div>
 
-      {/* ARENA PROMPT BANNER */}
-      <div className="mb-6 rounded-3xl bg-slate-900/90 border border-emerald-500/30 p-6 sm:p-8 text-center shadow-2xl relative overflow-hidden">
-        <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-28 bg-emerald-500/10 blur-3xl" />
-
-        <div className="inline-block rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3.5 py-1 text-xs font-black uppercase tracking-wider text-emerald-400 mb-3">
-          ⚡ {statMeta.label}
-        </div>
-        <h1 className="text-2xl sm:text-4xl font-black text-white uppercase tracking-tight max-w-3xl mx-auto leading-tight drop-shadow-md">
-          {currentQ.prompt}
-        </h1>
-      </div>
-
-      {/* INTERACTIVE ARENA PLAYFIELD */}
+      {/* INTERACTIVE ARENA - SIN IMÁGENES DE FUTBOLISTAS */}
       {!roundAnswered ? (
         <div>
-          {/* 1. HIGHER / LOWER 4 FUT CARDS GRID */}
+          {/* 1. HIGHER / LOWER (4 OPCIONES LIMPIAS CON DORSAL Y DATOS) */}
           {(currentQ.gameType === 'higher' || currentQ.gameType === 'lower') && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {currentQ.players.map((player, idx) => (
-                <FutCard
+                <PlayerCardClean
                   key={player.player_id}
                   name={player.name}
-                  photo={player.photo}
                   position={player.position}
                   nationality={player.nationality}
                   clubName={player.club_name}
-                  clubLogo={player.club_logo}
+                  shirtNumber={idx + 7}
                   variant={idx === 0 ? 'emerald' : idx === 1 ? 'gold' : idx === 2 ? 'cyan' : 'purple'}
                   isSelected={selectedPlayerId === player.player_id}
                   onClick={() => {
@@ -416,22 +384,20 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
                     submitAnswer({ selectedPlayerId: player.player_id });
                   }}
                   highlightStat={{
-                    label: 'Toca para elegir',
-                    value: '¿MÁS ALTO?',
+                    label: 'Toca para seleccionar',
+                    value: '¿ESTE JUGADOR?',
                   }}
                 />
               ))}
             </div>
           )}
 
-          {/* 2. HIGHER / LOWER LADDER (2 FUT Cards VS Battle) */}
+          {/* 2. HIGHER / LOWER LADDER (2 JUGADORES) */}
           {currentQ.gameType === 'higher-lower' && currentQ.players.length >= 2 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center max-w-2xl mx-auto">
-              {/* Card A: Revealed Stat */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center max-w-2xl mx-auto">
               <div>
-                <FutCard
+                <PlayerCardClean
                   name={currentQ.players[0].name}
-                  photo={currentQ.players[0].photo}
                   position={currentQ.players[0].position}
                   nationality={currentQ.players[0].nationality}
                   clubName={currentQ.players[0].club_name}
@@ -447,11 +413,9 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
                 />
               </div>
 
-              {/* Card B: Higher or Lower Choice */}
               <div className="space-y-4">
-                <FutCard
+                <PlayerCardClean
                   name={currentQ.players[1].name}
-                  photo={currentQ.players[1].photo}
                   position={currentQ.players[1].position}
                   nationality={currentQ.players[1].nationality}
                   clubName={currentQ.players[1].club_name}
@@ -463,13 +427,13 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
                   }}
                 />
 
-                <div className="flex gap-3 pt-2">
+                <div className="flex gap-3">
                   <button
                     onClick={() => {
                       soundFX.playTap();
                       submitAnswer({ choice: 'higher' });
                     }}
-                    className="flex-1 arcade-btn-green py-4 rounded-2xl text-lg font-black uppercase cursor-pointer"
+                    className="flex-1 arcade-btn-green py-4 rounded-2xl text-base font-black uppercase cursor-pointer"
                   >
                     ▲ MAYOR
                   </button>
@@ -478,7 +442,7 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
                       soundFX.playTap();
                       submitAnswer({ choice: 'lower' });
                     }}
-                    className="flex-1 arcade-btn-red py-4 rounded-2xl text-lg font-black uppercase cursor-pointer"
+                    className="flex-1 arcade-btn-red py-4 rounded-2xl text-base font-black uppercase cursor-pointer"
                   >
                     ▼ MENOR
                   </button>
@@ -490,9 +454,8 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
           {/* 3. EXACT / CLOSEST NUMERIC ESTIMATOR */}
           {(currentQ.gameType === 'exact' || currentQ.gameType === 'closest') && currentQ.players[0] && (
             <div className="max-w-md mx-auto">
-              <FutCard
+              <PlayerCardClean
                 name={currentQ.players[0].name}
-                photo={currentQ.players[0].photo}
                 position={currentQ.players[0].position}
                 nationality={currentQ.players[0].nationality}
                 clubName={currentQ.players[0].club_name}
@@ -504,7 +467,7 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
                 }}
               />
 
-              <div className="mt-6 game-panel rounded-3xl p-6 text-center border-slate-800">
+              <div className="mt-6 rounded-3xl bg-slate-900 border border-slate-800 p-6 text-center">
                 <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
                   Introduce tu pronóstico numérico
                 </label>
@@ -530,12 +493,11 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
             </div>
           )}
 
-          {/* 4. GUESS THE STAT 4 ARCADE BUTTONS */}
+          {/* 4. GUESS THE STAT 4 BOTONES */}
           {currentQ.gameType === 'guess-stat' && currentQ.players[0] && (
             <div className="max-w-md mx-auto space-y-6">
-              <FutCard
+              <PlayerCardClean
                 name={currentQ.players[0].name}
-                photo={currentQ.players[0].photo}
                 position={currentQ.players[0].position}
                 nationality={currentQ.players[0].nationality}
                 clubName={currentQ.players[0].club_name}
@@ -555,7 +517,7 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
                       soundFX.playTap();
                       submitAnswer({ numericAnswer: opt.value });
                     }}
-                    className="game-panel hover:game-panel-glow py-4 px-4 rounded-2xl font-mono text-xl font-black text-white hover:text-emerald-300 transition-all cursor-pointer text-center"
+                    className="p-4 rounded-2xl bg-slate-900 border border-slate-800 hover:border-emerald-400 font-mono text-xl font-black text-white hover:text-emerald-300 transition-all cursor-pointer text-center"
                   >
                     {opt.label}
                   </button>
@@ -567,7 +529,7 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
           {/* 5. LIMIT / TARGET ACCUMULATOR */}
           {(currentQ.gameType === 'limit' || currentQ.gameType === 'target') && (
             <div>
-              <div className="mb-4 flex items-center justify-between rounded-2xl game-panel px-5 py-3.5 border-emerald-500/30">
+              <div className="mb-4 flex items-center justify-between rounded-2xl bg-slate-900 px-5 py-3.5 border border-emerald-500/30">
                 <span className="text-sm font-black uppercase text-white">
                   {currentQ.gameType === 'limit'
                     ? `Tope Límite: ${currentQ.limitValue} ${statMeta.label}`
@@ -581,21 +543,21 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
                   }}
                   className="arcade-btn-green px-5 py-2 rounded-xl text-xs font-black uppercase disabled:opacity-40"
                 >
-                  Confirmar Selección ({selectedMultiIds.length})
+                  Confirmar ({selectedMultiIds.length})
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {currentQ.players.map((p) => {
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {currentQ.players.map((p, idx) => {
                   const isSelected = selectedMultiIds.includes(p.player_id);
                   return (
-                    <FutCard
+                    <PlayerCardClean
                       key={p.player_id}
                       name={p.name}
-                      photo={p.photo}
                       position={p.position}
                       nationality={p.nationality}
                       clubName={p.club_name}
+                      shirtNumber={idx + 4}
                       variant={isSelected ? 'emerald' : 'gold'}
                       isSelected={isSelected}
                       onClick={() => {
@@ -615,12 +577,12 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
           )}
         </div>
       ) : (
-        /* ARCADE RESULT REVEAL BANNER */
+        /* RESULTADO DE LA RONDA */
         <div
-          className={`rounded-3xl p-8 text-center shadow-2xl transition-all duration-300 ${
+          className={`rounded-3xl p-8 text-center shadow-2xl transition-all duration-300 bg-slate-900 border-2 ${
             roundResult?.isCorrect
-              ? 'game-panel-glow border-emerald-400/80 animate-scaleUp'
-              : 'game-panel border-red-500/60 animate-shake'
+              ? 'border-emerald-400 shadow-emerald-500/20'
+              : 'border-red-500/80 shadow-red-500/20'
           }`}
         >
           <div
@@ -660,10 +622,10 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
         </div>
       )}
 
-      {/* MATCH FINISHED CELEBRATION MODAL */}
+      {/* MODAL DE FIN DE PARTIDA */}
       {matchFinished && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-xl p-4">
-          <div className="w-full max-w-md rounded-3xl game-panel-glow p-8 text-center shadow-2xl relative overflow-hidden animate-scaleUp">
+          <div className="w-full max-w-md rounded-3xl bg-slate-900 border-2 border-emerald-500/50 p-8 text-center shadow-2xl relative overflow-hidden animate-scaleUp">
             <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-amber-400 to-amber-600 text-slate-950 shadow-xl shadow-amber-500/30 mb-4">
               <Trophy className="h-10 w-10 fill-slate-950" />
             </div>
@@ -675,12 +637,11 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
               {modeInfo.name} • STATXI
             </p>
 
-            {/* Score Showcase */}
             <div className="my-6 rounded-2xl bg-slate-950 border border-slate-800 p-5">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
                 PUNTUACIÓN TOTAL
               </span>
-              <div className="text-5xl font-black text-emerald-400 font-mono mt-1 drop-shadow">
+              <div className="text-5xl font-black text-emerald-400 font-mono mt-1">
                 {totalScore.toLocaleString()}
               </div>
               <div className="mt-3 flex items-center justify-center gap-4 text-xs font-bold">
@@ -691,7 +652,6 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
               </div>
             </div>
 
-            {/* Achievements */}
             {newlyUnlocked.length > 0 && (
               <div className="mb-6 rounded-2xl bg-amber-500/15 border border-amber-500/40 p-3.5 text-left">
                 <div className="flex items-center gap-2 text-xs font-black text-amber-300 uppercase">
@@ -704,7 +664,6 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
               </div>
             )}
 
-            {/* Modal Actions */}
             <div className="flex flex-col gap-3">
               <button
                 onClick={handleShare}

@@ -29,12 +29,12 @@ export default function CustomGamePage() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mb-8">
-        <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-400 mb-2">
+    <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8 pb-20">
+      <div className="mb-8 text-center max-w-xl mx-auto">
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/40 px-3.5 py-1 text-xs font-black uppercase text-emerald-400 mb-2">
           <Sparkles className="h-3.5 w-3.5" /> MODO PERSONALIZADO
         </div>
-        <h1 className="text-3xl font-black text-white uppercase tracking-tight">
+        <h1 className="text-3xl sm:text-4xl font-black text-white uppercase tracking-tight">
           Crea tu Partida a Medida
         </h1>
         <p className="text-xs text-slate-400 mt-1">

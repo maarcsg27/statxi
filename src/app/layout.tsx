@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import Navbar from '@/components/Navbar';
+import Sidebar from '@/components/Sidebar';
+import MobileHeader from '@/components/MobileHeader';
 import BottomNav from '@/components/BottomNav';
 
 const inter = Inter({
@@ -18,8 +19,8 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: 'STATXI — Plataforma de Minijuegos de Estadísticas de Fútbol',
   description:
-    'Portal definitivo de minijuegos basados en datos reales de futbolistas, clubes y competiciones. Wordle + Sporcle + Fantasy Football.',
-  keywords: ['futbol', 'estadisticas', 'minijuegos', 'statxi', 'quiz de futbol', 'daily challenge', 'lamine yamal', 'haaland', 'mbappe'],
+    'Portal de minijuegos basados en datos reales de futbolistas, clubes y competiciones. Wordle + Sporcle + Fantasy Football.',
+  keywords: ['futbol', 'estadisticas', 'minijuegos', 'statxi', 'quiz de futbol', 'daily challenge'],
 };
 
 export default function RootLayout({
@@ -29,9 +30,19 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" className="dark h-full antialiased">
-      <body className={`${inter.className} min-h-full flex flex-col bg-slate-950 text-slate-100 selection:bg-emerald-500 selection:text-slate-950 pb-20 md:pb-0`}>
-        <Navbar />
-        <main className="flex-1 w-full">{children}</main>
+      <body className={`${inter.className} min-h-full bg-slate-950 text-slate-100 selection:bg-emerald-500 selection:text-slate-950`}>
+        <div className="flex min-h-screen">
+          {/* Menú en el lateral izquierdo */}
+          <Sidebar />
+
+          {/* Área principal a la derecha */}
+          <div className="flex-1 min-w-0 flex flex-col pb-20 md:pb-8">
+            <MobileHeader />
+            <main className="flex-1 w-full">{children}</main>
+          </div>
+        </div>
+
+        {/* Barra inferior táctil exclusiva para móviles */}
         <BottomNav />
       </body>
     </html>

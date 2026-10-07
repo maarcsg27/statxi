@@ -1,61 +1,32 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import { GAME_MODES } from '@/lib/game-engine/modes-data';
-import { Sparkles, Trophy, Play, Zap } from 'lucide-react';
-import { soundFX } from '@/lib/audio/sound-effects';
+import { Sparkles } from 'lucide-react';
+import MinigameCard from '@/components/MinigameCard';
 
 export default function GameModesPage() {
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 pb-20">
-      <div className="mb-8 text-center sm:text-left">
-        <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 border border-emerald-500/40 px-3.5 py-1 text-xs font-black uppercase tracking-wider text-emerald-400 mb-2">
-          <Sparkles className="h-3.5 w-3.5" /> 12 MINIJUEGOS ARCADE
+    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8 pb-24">
+      {/* Título Centrado */}
+      <div className="mb-12 text-center max-w-3xl mx-auto">
+        <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 border border-emerald-500/40 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-emerald-400 mb-3 shadow-lg shadow-emerald-500/10">
+          <Sparkles className="h-4 w-4" /> 12 MINIJUEGOS OFICIALES STATXI
         </div>
-        <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight uppercase">
+
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight uppercase leading-tight drop-shadow-md">
           SELECCIONA TU DESAFÍO
         </h1>
-        <p className="mt-2 text-xs sm:text-sm text-slate-300 max-w-2xl font-medium">
-          Duelos 1v1, retos de acumulación, valores de mercado y draft táctico. Cada minijuego cuenta con sus propias reglas y multiplicadores de puntuación.
+
+        <p className="mt-3 text-sm sm:text-base text-slate-300 font-medium leading-relaxed max-w-2xl mx-auto">
+          Duelos de máximos, comparativas de tarjetas, aproximación numérica y estrategia de acumulación. Pon a prueba tus conocimientos en cada modalidad.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      {/* Grid de Recuadros Ilustrados de Cada Minijuego */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {GAME_MODES.map((mode) => (
-          <div
-            key={mode.type}
-            className="group flex flex-col justify-between rounded-3xl game-panel p-6 border-slate-800 hover:border-emerald-400/80 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-emerald-500/15"
-          >
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <span className="rounded-xl bg-slate-800 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-400 border border-slate-700">
-                  {mode.badge}
-                </span>
-                <span className="font-mono text-xs font-bold text-slate-400">
-                  {mode.defaultRounds} Rondas • {mode.defaultTimeLimitSeconds}s
-                </span>
-              </div>
-
-              <h3 className="text-2xl font-black text-white uppercase tracking-tight group-hover:text-emerald-300 transition-colors">
-                {mode.name}
-              </h3>
-              <p className="mt-2 text-xs text-slate-400 leading-relaxed font-medium">
-                {mode.description}
-              </p>
-            </div>
-
-            <div className="mt-6 pt-4 border-t border-slate-800">
-              <Link
-                href={`/play/${mode.type}`}
-                onClick={() => soundFX.playTap()}
-                className="w-full arcade-btn-green py-3.5 px-4 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Play className="h-4 w-4 fill-slate-950" />
-                JUGAR MODO
-              </Link>
-            </div>
-          </div>
+          <MinigameCard key={mode.type} mode={mode} />
         ))}
       </div>
     </div>
