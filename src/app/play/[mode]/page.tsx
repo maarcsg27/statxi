@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef, use } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Timer,
   Trophy,
@@ -14,9 +14,11 @@ import {
   XCircle,
   Sparkles,
   Zap,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { GameType, StatType, STAT_REGISTRY } from '@/lib/game-engine/types';
+import { GameType, StatType, STAT_REGISTRY, Difficulty } from '@/lib/game-engine/types';
 import { GAME_MODES } from '@/lib/game-engine/modes-data';
 import PlayerCardClean from '@/components/PlayerCardClean';
 import { soundFX } from '@/lib/audio/sound-effects';
@@ -38,7 +40,8 @@ interface QuestionData {
   players: SanitizedPlayer[];
   limitValue?: number;
   targetValue?: number;
-  options?: Array<{ playerId: string; label: string; value?: number }>;
+  tolerance?: number;
+  options?: Array<{ playerId: string; label: string; value?: number; statKey?: StatType }>;
 }
 
 interface ValidationResult {
@@ -54,8 +57,18 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
   const resolvedParams = use(params);
   const rawMode = resolvedParams.mode as GameType;
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const modeInfo = GAME_MODES.find((m) => m.type === rawMode) || GAME_MODES[0];
+
+  // Custom configurations from URL query params (from Custom Game Studio)
+  const customStat = searchParams.get('stat') as StatType | null;
+  const customDiff = (searchParams.get('diff') as Difficulty) || 'medium';
+  const customRounds = searchParams.get('rounds') ? Number(searchParams.get('rounds')) : (modeInfo.defaultRounds || 5);
+  const customTime = searchParams.get('time') ? Number(searchParams.get('time')) : (modeInfo.defaultTimeLimitSeconds || 15);
+  const customCount = searchParams.get('count') ? Number(searchParams.get('count')) : (modeInfo.formats?.[0] || 4);
+  const customComp = searchParams.get('comp') || undefined;
+  const customSeed = searchParams.get('seed') || undefined;
 
   // Game state
   const [loading, setLoading] = useState(true);
@@ -69,10 +82,11 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
   const [roundResult, setRoundResult] = useState<ValidationResult | null>(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [selectedMultiIds, setSelectedMultiIds] = useState<string[]>([]);
+  const [orderedPlayerIds, setOrderedPlayerIds] = useState<string[]>([]);
   const [numericInput, setNumericInput] = useState<string>('');
 
   // Timer & Scoring
-  const timeLimit = modeInfo.defaultTimeLimitSeconds || 15;
+  const timeLimit = customTime || modeInfo.defaultTimeLimitSeconds || 15;
   const [timeLeft, setTimeLeft] = useState(timeLimit);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(Date.now());
@@ -101,8 +115,12 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             gameType: modeInfo.type,
-            difficulty: 'medium',
-            rounds: modeInfo.defaultRounds || 5,
+            stat: customStat || undefined,
+            difficulty: customDiff,
+            rounds: customRounds,
+            format: customCount,
+            competitionId: customComp,
+            seed: customSeed,
             userId: userObj?.id,
           }),
         });
@@ -123,7 +141,7 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
     }
 
     startMatch();
-  }, [modeInfo, timeLimit]);
+  }, [modeInfo, timeLimit, customStat, customDiff, customRounds, customCount, customComp, customSeed]);
 
   // Round Timer Countdown with Sound Tick
   useEffect(() => {
@@ -162,6 +180,8 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
   const submitAnswer = async (payload: {
     selectedPlayerId?: string;
     selectedPlayerIds?: string[];
+    orderedPlayerIds?: string[];
+    selectedStatKey?: StatType;
     numericAnswer?: number;
     choice?: 'higher' | 'lower';
     responseTimeMs?: number;
@@ -183,6 +203,8 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
             roundNumber: currentQ.roundNumber,
             selectedPlayerId: payload.selectedPlayerId,
             selectedPlayerIds: payload.selectedPlayerIds,
+            orderedPlayerIds: payload.orderedPlayerIds,
+            selectedStatKey: payload.selectedStatKey,
             numericAnswer: payload.numericAnswer,
             choice: payload.choice,
             responseTimeMs: responseTime,
@@ -227,6 +249,7 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
       setRoundResult(null);
       setSelectedPlayerId(null);
       setSelectedMultiIds([]);
+      setOrderedPlayerIds([]);
       setNumericInput('');
       setTimeLeft(timeLimit);
       startTimeRef.current = Date.now();
@@ -366,9 +389,19 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
       {/* INTERACTIVE ARENA - SIN IMÁGENES DE FUTBOLISTAS */}
       {!roundAnswered ? (
         <div>
-          {/* 1. HIGHER / LOWER (4 OPCIONES LIMPIAS CON DORSAL Y DATOS) */}
-          {(currentQ.gameType === 'higher' || currentQ.gameType === 'lower') && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* 1. SELECCIÓN DE JUGADOR (HIGHER, LOWER, DRAFT, PLAYER-CHAIN, BATTLE) */}
+          {(currentQ.gameType === 'higher' ||
+            currentQ.gameType === 'lower' ||
+            currentQ.gameType === 'draft' ||
+            currentQ.gameType === 'player-chain' ||
+            currentQ.gameType === 'battle') && (
+            <div className={`grid gap-4 ${
+              currentQ.players.length === 2
+                ? 'grid-cols-1 sm:grid-cols-2 max-w-2xl mx-auto'
+                : currentQ.players.length <= 4
+                ? 'grid-cols-1 sm:grid-cols-2'
+                : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4'
+            }`}>
               {currentQ.players.map((player, idx) => (
                 <PlayerCardClean
                   key={player.player_id}
@@ -384,7 +417,7 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
                     submitAnswer({ selectedPlayerId: player.player_id });
                   }}
                   highlightStat={{
-                    label: 'Toca para seleccionar',
+                    label: currentQ.gameType === 'draft' ? 'Fichar para este puesto' : 'Toca para elegir',
                     value: '¿ESTE JUGADOR?',
                   }}
                 />
@@ -392,7 +425,103 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
             </div>
           )}
 
-          {/* 2. HIGHER / LOWER LADDER (2 JUGADORES) */}
+          {/* 2. MODO RANKING (ORDENAR JUGADORES DE MAYOR A MENOR) */}
+          {currentQ.gameType === 'ranking' && (
+            <div className="space-y-6 max-w-3xl mx-auto">
+              {/* Slots de Orden Seleccionado */}
+              <div className="p-4 rounded-2xl bg-slate-900 border border-emerald-500/30">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-black uppercase text-emerald-400">
+                    Tu Orden (De Mayor a Menor)
+                  </span>
+                  <button
+                    onClick={() => {
+                      soundFX.playTap();
+                      setOrderedPlayerIds([]);
+                    }}
+                    className="text-[11px] font-bold text-slate-400 hover:text-white uppercase transition-colors"
+                  >
+                    Reiniciar Selección
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {currentQ.players.map((_, idx) => {
+                    const slottedId = orderedPlayerIds[idx];
+                    const slottedPlayer = currentQ.players.find((p) => p.player_id === slottedId);
+                    return (
+                      <div
+                        key={idx}
+                        className={`flex-1 min-w-[120px] p-2.5 rounded-xl border text-center ${
+                          slottedPlayer
+                            ? 'bg-emerald-500/20 border-emerald-400 text-white'
+                            : 'bg-slate-950 border-dashed border-slate-700 text-slate-500'
+                        }`}
+                      >
+                        <span className="text-[10px] font-mono font-black block text-emerald-400 mb-0.5">
+                          {idx + 1}º PUESTO
+                        </span>
+                        <span className="text-xs font-bold truncate block">
+                          {slottedPlayer ? slottedPlayer.name : 'Vacío'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Lista de Jugadores para Seleccionar en Orden */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {currentQ.players.map((player) => {
+                  const orderIdx = orderedPlayerIds.indexOf(player.player_id);
+                  const isPlaced = orderIdx !== -1;
+                  return (
+                    <button
+                      key={player.player_id}
+                      disabled={isPlaced}
+                      onClick={() => {
+                        soundFX.playTap();
+                        const nextOrder = [...orderedPlayerIds, player.player_id];
+                        setOrderedPlayerIds(nextOrder);
+                        if (nextOrder.length === currentQ.players.length) {
+                          submitAnswer({ orderedPlayerIds: nextOrder });
+                        }
+                      }}
+                      className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                        isPlaced
+                          ? 'opacity-40 bg-slate-950 border-slate-800'
+                          : 'bg-slate-900 border-slate-700 hover:border-emerald-400'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">
+                          {player.position}
+                        </span>
+                        {isPlaced && (
+                          <span className="text-xs font-black text-emerald-400 font-mono">
+                            #{orderIdx + 1}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs font-black text-white truncate">{player.name}</div>
+                      <div className="text-[10px] text-slate-400 truncate">{player.club_name || player.nationality}</div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {orderedPlayerIds.length === currentQ.players.length && (
+                <button
+                  onClick={() => submitAnswer({ orderedPlayerIds })}
+                  className="w-full arcade-btn-green py-4 rounded-2xl text-sm font-black uppercase tracking-wider"
+                >
+                  CONFIRMAR RANKING
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* 3. HIGHER / LOWER LADDER (2 JUGADORES) */}
           {currentQ.gameType === 'higher-lower' && currentQ.players.length >= 2 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center max-w-2xl mx-auto">
               <div>
@@ -451,7 +580,7 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
             </div>
           )}
 
-          {/* 3. EXACT / CLOSEST NUMERIC ESTIMATOR */}
+          {/* 4. EXACT / CLOSEST NUMERIC ESTIMATOR */}
           {(currentQ.gameType === 'exact' || currentQ.gameType === 'closest') && currentQ.players[0] && (
             <div className="max-w-md mx-auto">
               <PlayerCardClean
@@ -469,7 +598,7 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
 
               <div className="mt-6 rounded-3xl bg-slate-900 border border-slate-800 p-6 text-center">
                 <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
-                  Introduce tu pronóstico numérico
+                  Introduce tu pronóstico numérico {currentQ.tolerance ? `(Tolerancia ±${currentQ.tolerance})` : ''}
                 </label>
                 <input
                   type="number"
@@ -493,7 +622,7 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
             </div>
           )}
 
-          {/* 4. GUESS THE STAT 4 BOTONES */}
+          {/* 5. GUESS THE STAT (OPCIONES DE ESTADÍSTICA) */}
           {currentQ.gameType === 'guess-stat' && currentQ.players[0] && (
             <div className="max-w-md mx-auto space-y-6">
               <PlayerCardClean
@@ -502,10 +631,10 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
                 nationality={currentQ.players[0].nationality}
                 clubName={currentQ.players[0].club_name}
                 variant="cyan"
-                isRevealed={false}
+                isRevealed={true}
                 highlightStat={{
-                  label: 'Elige la cifra correcta',
-                  value: '???',
+                  label: 'Cifra Registrada',
+                  value: statMeta.formatValue(currentQ.options?.[0]?.value || 0),
                 }}
               />
 
@@ -515,9 +644,12 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
                     key={idx}
                     onClick={() => {
                       soundFX.playTap();
-                      submitAnswer({ numericAnswer: opt.value });
+                      submitAnswer({
+                        selectedStatKey: opt.statKey,
+                        numericAnswer: opt.value,
+                      });
                     }}
-                    className="p-4 rounded-2xl bg-slate-900 border border-slate-800 hover:border-emerald-400 font-mono text-xl font-black text-white hover:text-emerald-300 transition-all cursor-pointer text-center"
+                    className="p-4 rounded-2xl bg-slate-900 border border-slate-800 hover:border-emerald-400 font-bold text-sm text-white hover:text-emerald-300 transition-all cursor-pointer text-center"
                   >
                     {opt.label}
                   </button>
@@ -526,14 +658,16 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
             </div>
           )}
 
-          {/* 5. LIMIT / TARGET ACCUMULATOR */}
-          {(currentQ.gameType === 'limit' || currentQ.gameType === 'target') && (
+          {/* 6. LIMIT / TARGET / SQUAD-DNA ACCUMULATOR */}
+          {(currentQ.gameType === 'limit' || currentQ.gameType === 'target' || currentQ.gameType === 'squad-dna') && (
             <div>
               <div className="mb-4 flex items-center justify-between rounded-2xl bg-slate-900 px-5 py-3.5 border border-emerald-500/30">
                 <span className="text-sm font-black uppercase text-white">
                   {currentQ.gameType === 'limit'
                     ? `Tope Límite: ${currentQ.limitValue} ${statMeta.label}`
-                    : `Objetivo Exacto: ${currentQ.targetValue} ${statMeta.label}`}
+                    : currentQ.gameType === 'target'
+                    ? `Objetivo Exacto: ${currentQ.targetValue} ${statMeta.label}`
+                    : `Squad DNA: Selecciona al menos 3 jugadores`}
                 </span>
                 <button
                   disabled={selectedMultiIds.length === 0}
@@ -575,6 +709,7 @@ export default function PlayArenaPage({ params }: { params: Promise<{ mode: stri
               </div>
             </div>
           )}
+
         </div>
       ) : (
         /* RESULTADO DE LA RONDA */

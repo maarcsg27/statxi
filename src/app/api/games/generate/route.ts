@@ -45,10 +45,12 @@ export async function POST(req: Request) {
       })),
       limitValue: q.limitValue,
       targetValue: q.targetValue,
+      tolerance: q.tolerance,
       options: q.options?.map((opt) => ({
         playerId: opt.playerId,
         label: opt.label,
-        // For higher-lower, we can reveal player A value
+        statKey: opt.statKey,
+        // For higher-lower, reveal player A value
         value: q.gameType === 'higher-lower' && opt.playerId === q.players[0].player_id ? opt.value : undefined,
       })),
     }));

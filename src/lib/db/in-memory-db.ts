@@ -60,9 +60,21 @@ function transformMockToPool(): GamePlayerPoolRecord[] {
       titles: s.titles,
       world_cup_goals: s.worldCupGoals,
       champions_league_goals: s.championsLeagueGoals,
+      national_team_goals: s.worldCupGoals ? s.worldCupGoals + 12 : 5,
 
       market_value: s.marketValue,
       market_value_peak: s.marketValuePeak,
+      highest_market_value: s.marketValuePeak,
+
+      goals_per_match: s.stats2024.appearances ? Number(((s.stats2024.goals || 0) / s.stats2024.appearances).toFixed(2)) : null,
+      penalty_missed: s.stats2024.penaltyMissed,
+      duels: s.stats2024.duels,
+      duels_won: s.stats2024.duelsWon,
+      fouls_committed: s.stats2024.foulsCommitted,
+      fouls_drawn: s.stats2024.foulsDrawn,
+      clean_sheets: s.stats2024.cleanSheets,
+      saves: s.stats2024.saves,
+      goals_conceded: s.stats2024.goalsConceded,
 
       career_goals: s.careerGoals,
       career_assists: s.careerAssists,

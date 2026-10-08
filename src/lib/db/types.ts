@@ -43,9 +43,21 @@ export interface GamePlayerPoolRecord {
   titles: number;
   world_cup_goals: number;
   champions_league_goals: number;
+  national_team_goals?: number | null;
 
   market_value: number | null;
   market_value_peak: number | null;
+  highest_market_value?: number | null;
+
+  goals_per_match?: number | null;
+  penalty_missed?: number | null;
+  duels?: number | null;
+  duels_won?: number | null;
+  fouls_committed?: number | null;
+  fouls_drawn?: number | null;
+  clean_sheets?: number | null;
+  saves?: number | null;
+  goals_conceded?: number | null;
 
   career_goals?: number | null;
   career_assists?: number | null;

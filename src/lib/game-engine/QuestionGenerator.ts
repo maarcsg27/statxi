@@ -97,6 +97,8 @@ export class QuestionGenerator {
         return this.buildHigherQuestion(roundNumber, stat, shuffled, options.format || 4);
       case 'lower':
         return this.buildLowerQuestion(roundNumber, stat, shuffled, options.format || 4);
+      case 'ranking':
+        return this.buildRankingQuestion(roundNumber, stat, shuffled, options.format || 4);
       case 'higher-lower':
         return this.buildHigherLowerQuestion(roundNumber, stat, shuffled);
       case 'exact':
@@ -110,9 +112,18 @@ export class QuestionGenerator {
       case 'target':
         return this.buildTargetQuestion(roundNumber, stat, shuffled);
       case 'draft':
+        return this.buildDraftQuestion(roundNumber, stat, shuffled);
       case 'squad-dna':
+        return this.buildSquadDNAQuestion(roundNumber, stat, shuffled);
       case 'player-chain':
-      case 'random-challenge':
+        return this.buildPlayerChainQuestion(roundNumber, stat, shuffled);
+      case 'battle':
+        return this.buildHigherQuestion(roundNumber, stat, shuffled, 2);
+      case 'random-challenge': {
+        const subModes: GameType[] = ['higher', 'lower', 'higher-lower', 'exact', 'closest', 'guess-stat', 'limit', 'target'];
+        const pickedMode = subModes[Math.floor(this.rng.next() * subModes.length)];
+        return this.generateSingleQuestion(roundNumber, { ...options, gameType: pickedMode });
+      }
       default:
         return this.buildHigherQuestion(roundNumber, stat, shuffled, 4);
     }
@@ -120,7 +131,7 @@ export class QuestionGenerator {
 
   private selectRandomStat(gameType: GameType): StatType {
     if (gameType === 'lower') {
-      const lowerStats: StatType[] = ['yellow_cards', 'red_cards'];
+      const lowerStats: StatType[] = ['yellow_cards', 'red_cards', 'fouls_committed', 'goals_conceded'];
       return lowerStats[Math.floor(this.rng.next() * lowerStats.length)];
     }
     const defaultStats: StatType[] = [
@@ -131,6 +142,7 @@ export class QuestionGenerator {
       'key_passes',
       'shots_on_target',
       'titles',
+      'minutes',
     ];
     return defaultStats[Math.floor(this.rng.next() * defaultStats.length)];
   }
@@ -141,10 +153,9 @@ export class QuestionGenerator {
     pool: GamePlayerPoolRecord[],
     count = 4
   ): GameQuestion {
-    const selected = pool.slice(0, count);
+    const selected = pool.slice(0, Math.min(count, pool.length));
     const meta = STAT_REGISTRY[stat];
 
-    // Find the player with the highest stat
     let highestPlayer = selected[0];
     let highestVal = (highestPlayer[stat] as number) || 0;
 
@@ -157,7 +168,7 @@ export class QuestionGenerator {
     }
 
     return {
-      id: `q-${round}-${stat}`,
+      id: `q-${round}-${stat}-h`,
       roundNumber: round,
       gameType: 'higher',
       prompt: `¿Cuál de estos futbolistas tiene MÁS ${meta.label.toUpperCase()}?`,
@@ -179,7 +190,7 @@ export class QuestionGenerator {
     pool: GamePlayerPoolRecord[],
     count = 4
   ): GameQuestion {
-    const selected = pool.slice(0, count);
+    const selected = pool.slice(0, Math.min(count, pool.length));
     const meta = STAT_REGISTRY[stat];
 
     let lowestPlayer = selected[0];
@@ -194,7 +205,7 @@ export class QuestionGenerator {
     }
 
     return {
-      id: `q-${round}-${stat}`,
+      id: `q-${round}-${stat}-l`,
       roundNumber: round,
       gameType: 'lower',
       prompt: `¿Quién tiene MENOS ${meta.label.toUpperCase()}?`,
@@ -202,6 +213,35 @@ export class QuestionGenerator {
       players: selected,
       correctPlayerId: lowestPlayer.player_id,
       correctValue: lowestVal,
+      options: selected.map((p) => ({
+        playerId: p.player_id,
+        label: p.name,
+        value: p[stat] as number,
+      })),
+    };
+  }
+
+  private buildRankingQuestion(
+    round: number,
+    stat: StatType,
+    pool: GamePlayerPoolRecord[],
+    count = 4
+  ): GameQuestion {
+    const selected = pool.slice(0, Math.min(count, pool.length));
+    const meta = STAT_REGISTRY[stat];
+
+    // Sorted descending by stat value
+    const sorted = [...selected].sort((a, b) => ((b[stat] as number) || 0) - ((a[stat] as number) || 0));
+    const correctOrderIds = sorted.map((p) => p.player_id);
+
+    return {
+      id: `q-${round}-${stat}-rank`,
+      roundNumber: round,
+      gameType: 'ranking',
+      prompt: `Ordena de MAYOR a MENOR por ${meta.label.toUpperCase()}`,
+      stat,
+      players: selected,
+      correctOrderIds,
       options: selected.map((p) => ({
         playerId: p.player_id,
         label: p.name,
@@ -221,7 +261,7 @@ export class QuestionGenerator {
     const valB = (pB[stat] as number) || 0;
 
     return {
-      id: `q-${round}-${stat}`,
+      id: `q-${round}-${stat}-hl`,
       roundNumber: round,
       gameType: 'higher-lower',
       prompt: `¿Tiene ${pB.name} más o menos ${meta.label.toLowerCase()} que ${pA.name}?`,
@@ -241,7 +281,7 @@ export class QuestionGenerator {
     const correctVal = (player[stat] as number) || 0;
 
     return {
-      id: `q-${round}-${stat}`,
+      id: `q-${round}-${stat}-exact`,
       roundNumber: round,
       gameType: 'exact',
       prompt: `¿Cuántos ${meta.label.toLowerCase()} registró ${player.name}?`,
@@ -249,6 +289,7 @@ export class QuestionGenerator {
       players: [player],
       correctValue: correctVal,
       correctPlayerId: player.player_id,
+      tolerance: stat === 'minutes' || stat === 'passes' ? 100 : 0,
     };
   }
 
@@ -258,7 +299,7 @@ export class QuestionGenerator {
     const correctVal = (player[stat] as number) || 0;
 
     return {
-      id: `q-${round}-${stat}`,
+      id: `q-${round}-${stat}-close`,
       roundNumber: round,
       gameType: 'closest',
       prompt: `Aproxímate: ¿Cuál es el registro de ${meta.label.toLowerCase()} de ${player.name}?`,
@@ -274,25 +315,39 @@ export class QuestionGenerator {
     const meta = STAT_REGISTRY[stat];
     const correctVal = (player[stat] as number) || 0;
 
-    // Generate 4 plausible choices around correct value
-    const deltas = [-Math.round(correctVal * 0.35 + 2), 0, Math.round(correctVal * 0.25 + 3), Math.round(correctVal * 0.6 + 5)];
-    const optionsVals = this.rng.shuffle(
-      deltas.map((d) => Math.max(0, correctVal + d)).filter((v, idx, arr) => arr.indexOf(v) === idx)
-    );
+    // Plausible candidate stat categories to choose from
+    const candidateStats: StatType[] = [
+      stat,
+      stat === 'goals' ? 'assists' : 'goals',
+      stat === 'yellow_cards' ? 'red_cards' : 'yellow_cards',
+      stat === 'shots_on_target' ? 'key_passes' : 'shots_on_target',
+    ];
+
+    const uniqueOptions = Array.from(new Set(candidateStats));
+    while (uniqueOptions.length < 4) {
+      const fallback: StatType[] = ['goals', 'assists', 'titles', 'yellow_cards', 'shots_on_target'];
+      const add = fallback.find((s) => !uniqueOptions.includes(s));
+      if (add) uniqueOptions.push(add);
+      else break;
+    }
+
+    const shuffledOptions = this.rng.shuffle(uniqueOptions);
 
     return {
-      id: `q-${round}-${stat}`,
+      id: `q-${round}-${stat}-guess`,
       roundNumber: round,
       gameType: 'guess-stat',
-      prompt: `¿Cuántos ${meta.label.toLowerCase()} tiene ${player.name}?`,
+      prompt: `${player.name} registró ${meta.formatValue(correctVal)}. ¿Qué estadística representa esta cifra?`,
       stat,
       players: [player],
       correctValue: correctVal,
+      correctStatKey: stat,
       correctPlayerId: player.player_id,
-      options: optionsVals.map((val) => ({
+      options: shuffledOptions.map((sKey) => ({
         playerId: player.player_id,
-        label: meta.formatValue(val),
-        value: val,
+        statKey: sKey,
+        label: STAT_REGISTRY[sKey].label,
+        value: (player[sKey] as number) || 0,
       })),
     };
   }
@@ -300,13 +355,13 @@ export class QuestionGenerator {
   private buildLimitQuestion(round: number, stat: StatType, pool: GamePlayerPoolRecord[]): GameQuestion {
     const selected = pool.slice(0, 6);
     const meta = STAT_REGISTRY[stat];
-    const limit = stat === 'goals' ? 45 : stat === 'assists' ? 25 : 60;
+    const limit = stat === 'goals' ? 45 : stat === 'assists' ? 25 : stat === 'market_value' ? 200_000_000 : 50;
 
     return {
-      id: `q-${round}-${stat}`,
+      id: `q-${round}-${stat}-limit`,
       roundNumber: round,
       gameType: 'limit',
-      prompt: `¡Football 21! Elige futbolistas sumando ${meta.label.toLowerCase()} sin pasarte de ${limit}.`,
+      prompt: `¡Football 21! Elige futbolistas sumando ${meta.label.toLowerCase()} sin pasarte de ${meta.formatValue(limit)}.`,
       stat,
       players: selected,
       limitValue: limit,
@@ -321,17 +376,100 @@ export class QuestionGenerator {
   private buildTargetQuestion(round: number, stat: StatType, pool: GamePlayerPoolRecord[]): GameQuestion {
     const selected = pool.slice(0, 6);
     const meta = STAT_REGISTRY[stat];
-    const target = stat === 'goals' ? 65 : 40;
+
+    // Build target from sum of 2 or 3 players so a target is achievable
+    const combo = selected.slice(0, 2);
+    const target = combo.reduce((sum, p) => sum + ((p[stat] as number) || 0), 0) || 30;
 
     return {
-      id: `q-${round}-${stat}`,
+      id: `q-${round}-${stat}-target`,
       roundNumber: round,
       gameType: 'target',
-      prompt: `Objetivo: Acércate lo máximo posible a ${target} ${meta.label.toLowerCase()} combinando 3 jugadores.`,
+      prompt: `Objetivo: Acércate o iguala ${meta.formatValue(target)} combinando futbolistas.`,
       stat,
       players: selected,
       targetValue: target,
       options: selected.map((p) => ({
+        playerId: p.player_id,
+        label: p.name,
+        value: p[stat] as number,
+      })),
+    };
+  }
+
+  private buildDraftQuestion(round: number, stat: StatType, pool: GamePlayerPoolRecord[]): GameQuestion {
+    const positions: Array<'Goalkeeper' | 'Defender' | 'Midfielder' | 'Attacker'> = [
+      'Goalkeeper',
+      'Defender',
+      'Midfielder',
+      'Attacker',
+      'Attacker',
+    ];
+    const currentPos = positions[(round - 1) % positions.length];
+    const meta = STAT_REGISTRY[stat];
+
+    const posPlayers = pool.filter((p) => p.position === currentPos);
+    const candidates = (posPlayers.length >= 4 ? posPlayers : pool).slice(0, 4);
+
+    // Best candidate is highest stat
+    const best = [...candidates].sort((a, b) => ((b[stat] as number) || 0) - ((a[stat] as number) || 0))[0];
+
+    return {
+      id: `q-${round}-${stat}-draft`,
+      roundNumber: round,
+      gameType: 'draft',
+      prompt: `Draft XI [Posición: ${currentPos}]: Ficha al jugador para maximizar ${meta.label.toUpperCase()}`,
+      stat,
+      players: candidates,
+      correctPlayerId: best.player_id,
+      correctValue: (best[stat] as number) || 0,
+      options: candidates.map((p) => ({
+        playerId: p.player_id,
+        label: p.name,
+        value: p[stat] as number,
+      })),
+    };
+  }
+
+  private buildSquadDNAQuestion(round: number, stat: StatType, pool: GamePlayerPoolRecord[]): GameQuestion {
+    const selected = pool.slice(0, 6);
+    const meta = STAT_REGISTRY[stat];
+
+    return {
+      id: `q-${round}-${stat}-dna`,
+      roundNumber: round,
+      gameType: 'squad-dna',
+      prompt: `Squad DNA: Selecciona los 3 jugadores que mejor optimicen ${meta.label.toUpperCase()}`,
+      stat,
+      players: selected,
+      options: selected.map((p) => ({
+        playerId: p.player_id,
+        label: p.name,
+        value: p[stat] as number,
+      })),
+    };
+  }
+
+  private buildPlayerChainQuestion(round: number, stat: StatType, pool: GamePlayerPoolRecord[]): GameQuestion {
+    const origin = pool[0];
+    const candidates = pool.slice(1, 5);
+    const meta = STAT_REGISTRY[stat];
+
+    // Chain rule: next player must have higher stat than origin
+    const originVal = (origin[stat] as number) || 0;
+    const validChains = candidates.filter((c) => ((c[stat] as number) || 0) >= originVal);
+    const correctPlayer = validChains.length > 0 ? validChains[0] : candidates[0];
+
+    return {
+      id: `q-${round}-${stat}-chain`,
+      roundNumber: round,
+      gameType: 'player-chain',
+      prompt: `Player Chain: ${origin.name} (${meta.formatValue(originVal)}) ➔ ¿Quién continúa la cadena con registro MAYOR?`,
+      stat,
+      players: [origin, ...candidates],
+      correctPlayerId: correctPlayer.player_id,
+      correctValue: (correctPlayer[stat] as number) || 0,
+      options: candidates.map((p) => ({
         playerId: p.player_id,
         label: p.name,
         value: p[stat] as number,

@@ -118,6 +118,22 @@ const MODE_ILLUSTRATIONS: Record<
     symbol: '🎲 RANDOM',
     tagline: 'Parámetros Sorpresa',
   },
+  ranking: {
+    gradient: 'from-amber-600 via-yellow-700 to-slate-900',
+    icon: Trophy,
+    iconColor: 'text-yellow-300',
+    bgAccent: 'rgba(234, 179, 8, 0.25)',
+    symbol: '🥇 1º a 4º',
+    tagline: 'Orden de Mayor a Menor',
+  },
+  battle: {
+    gradient: 'from-red-600 via-purple-900 to-slate-900',
+    icon: Zap,
+    iconColor: 'text-red-300',
+    bgAccent: 'rgba(239, 68, 68, 0.25)',
+    symbol: '⚔️ 1V1',
+    tagline: 'Duelo Cara a Cara',
+  },
 };
 
 export default function MinigameCard({ mode }: MinigameCardProps) {

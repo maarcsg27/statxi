@@ -70,7 +70,7 @@ export default function HomePage() {
         <div className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-3xl mx-auto">
           <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-3.5 text-center">
             <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 block">MINIJUEGOS</span>
-            <span className="text-2xl font-black font-mono text-white mt-0.5 block">12 Modos</span>
+            <span className="text-2xl font-black font-mono text-white mt-0.5 block">{GAME_MODES.length} Modos</span>
           </div>
           <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-3.5 text-center">
             <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 block">DAILY CHALLENGE</span>

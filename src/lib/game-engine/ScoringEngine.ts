@@ -70,9 +70,14 @@ export class ScoringEngine {
     // Accuracy multiplier (e.g. For closest/exact distance)
     const accuracyMultiplier = Number(Math.max(0, Math.min(accuracyRatio, 1.0)).toFixed(2));
 
-    // Streak multiplier: +10% per consecutive correct answer up to 2.0x (10 streak)
-    const streakBonus = Math.min(1.0, (streakCount || 0) * 0.1);
-    const streakMultiplier = Number((1.0 + streakBonus).toFixed(2));
+    // Streak multiplier following prompt specification:
+    // 1 -> x1.0, 2 -> x1.2, 3 -> x1.5, 4 -> x2.0, 5+ -> x3.0
+    let streakMultiplier = 1.0;
+    if (streakCount >= 5) streakMultiplier = 3.0;
+    else if (streakCount === 4) streakMultiplier = 2.0;
+    else if (streakCount === 3) streakMultiplier = 1.5;
+    else if (streakCount === 2) streakMultiplier = 1.2;
+    else streakMultiplier = 1.0;
 
     // Final points computation
     const rawScore = basePoints * diffMultiplier * timeMultiplier * accuracyMultiplier * streakMultiplier;

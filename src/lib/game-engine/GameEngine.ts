@@ -123,7 +123,10 @@ export class GameEngine {
 
     switch (question.gameType) {
       case 'higher':
-      case 'lower': {
+      case 'lower':
+      case 'draft':
+      case 'player-chain':
+      case 'battle': {
         const correctId = question.correctPlayerId;
         isCorrect = submission.selectedPlayerId === correctId;
         const correctP = question.players.find((p) => p.player_id === correctId);
@@ -136,6 +139,20 @@ export class GameEngine {
           ? `${userP.name} (${meta.formatValue((userP[question.stat] as number) || 0)})`
           : 'Opción seleccionada';
         accuracyRatio = isCorrect ? 1.0 : 0.0;
+        break;
+      }
+
+      case 'ranking': {
+        const correctOrder = question.correctOrderIds || [];
+        const userOrder = submission.orderedPlayerIds || [];
+        let matchedCount = 0;
+        for (let i = 0; i < correctOrder.length; i++) {
+          if (correctOrder[i] === userOrder[i]) matchedCount++;
+        }
+        isCorrect = matchedCount === correctOrder.length;
+        accuracyRatio = correctOrder.length > 0 ? matchedCount / correctOrder.length : 0;
+        correctAnswerText = 'Orden descendente correcto';
+        userAnswerText = `${matchedCount}/${correctOrder.length} posiciones acertadas`;
         break;
       }
 
@@ -159,9 +176,10 @@ export class GameEngine {
         const correctVal = question.correctValue || 0;
         const userVal = Number(submission.numericAnswer) || 0;
         difference = Math.abs(correctVal - userVal);
+        const tolerance = question.tolerance || 0;
 
         if (question.gameType === 'exact') {
-          isCorrect = difference === 0;
+          isCorrect = difference <= tolerance;
           accuracyRatio = isCorrect ? 1.0 : Math.max(0, 1 - difference / Math.max(1, correctVal * 0.4));
         } else {
           // Closest
@@ -175,11 +193,18 @@ export class GameEngine {
       }
 
       case 'guess-stat': {
-        const correctVal = question.correctValue || 0;
-        const userVal = Number(submission.numericAnswer);
-        isCorrect = userVal === correctVal;
-        correctAnswerText = meta.formatValue(correctVal);
-        userAnswerText = meta.formatValue(userVal || 0);
+        if (submission.selectedStatKey) {
+          isCorrect = submission.selectedStatKey === question.correctStatKey;
+          const chosenMeta = STAT_REGISTRY[submission.selectedStatKey];
+          correctAnswerText = meta.label;
+          userAnswerText = chosenMeta ? chosenMeta.label : 'Opción';
+        } else {
+          const correctVal = question.correctValue || 0;
+          const userVal = Number(submission.numericAnswer);
+          isCorrect = userVal === correctVal;
+          correctAnswerText = meta.formatValue(correctVal);
+          userAnswerText = meta.formatValue(userVal || 0);
+        }
         accuracyRatio = isCorrect ? 1.0 : 0.0;
         break;
       }
@@ -200,6 +225,29 @@ export class GameEngine {
           userAnswerText = `Total: ${sum} / ${limit}`;
         }
         correctAnswerText = `Límite: ${limit}`;
+        break;
+      }
+
+      case 'target': {
+        const target = question.targetValue || 50;
+        const selectedIds = submission.selectedPlayerIds || [];
+        const chosenPlayers = question.players.filter((p) => selectedIds.includes(p.player_id));
+        const sum = chosenPlayers.reduce((acc, p) => acc + ((p[question.stat] as number) || 0), 0);
+        difference = Math.abs(target - sum);
+
+        isCorrect = difference === 0 || difference <= Math.max(1, Math.round(target * 0.1));
+        accuracyRatio = Math.max(0, 1 - difference / Math.max(1, target * 0.4));
+        correctAnswerText = `Objetivo: ${target} ${meta.label}`;
+        userAnswerText = `Conseguido: ${sum} ${meta.label} (${difference === 0 ? '¡EXACTO!' : `Dif: ${difference}`})`;
+        break;
+      }
+
+      case 'squad-dna': {
+        const selectedIds = submission.selectedPlayerIds || [];
+        isCorrect = selectedIds.length >= 3;
+        accuracyRatio = isCorrect ? 1.0 : 0.5;
+        correctAnswerText = 'Alineación optimizada';
+        userAnswerText = `${selectedIds.length} futbolistas seleccionados`;
         break;
       }
 

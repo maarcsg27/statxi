@@ -11,7 +11,7 @@ export default function GameModesPage() {
       {/* Título Centrado */}
       <div className="mb-12 text-center max-w-3xl mx-auto">
         <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 border border-emerald-500/40 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-emerald-400 mb-3 shadow-lg shadow-emerald-500/10">
-          <Sparkles className="h-4 w-4" /> 12 MINIJUEGOS OFICIALES STATXI
+          <Sparkles className="h-4 w-4" /> {GAME_MODES.length} MINIJUEGOS OFICIALES STATXI
         </div>
 
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight uppercase leading-tight drop-shadow-md">
